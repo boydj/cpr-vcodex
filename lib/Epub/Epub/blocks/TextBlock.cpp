@@ -212,7 +212,13 @@ void TextBlock::render(const GfxRenderer& renderer, const int fontId, const int 
     const bool hasUnderline = (currentStyle & EpdFontFamily::UNDERLINE) != 0;
     const bool hasStrikethrough = (currentStyle & EpdFontFamily::STRIKETHROUGH) != 0;
     if (!scanning && (hasUnderline || hasStrikethrough)) {
-      const auto decoration = getDecorationMetrics(renderer, fontId, wordX, w, currentStyle);
+      auto decoration = getDecorationMetrics(renderer, fontId, wordX, w, currentStyle);
+      // SUP/SUB glyphs are rendered at 50% scale, while the font metrics above
+      // report their full-size width. Keep underline/strikethrough aligned with
+      // the visible glyphs instead of drawing them roughly twice as long.
+      if ((currentStyle & (EpdFontFamily::SUP | EpdFontFamily::SUB)) != 0) {
+        decoration.width = (decoration.width + 1) / 2;
+      }
       if (decoration.width <= 0) {
         continue;
       }
