@@ -10,26 +10,68 @@
 
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
+#include "activities/network/WifiSelectionActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "util/TimeUtils.h"
+
+namespace {
+  void wifiOff() {
+    TimeUtils::stopNtp();
+    WiFi.disconnect(false);
+    delay(100);
+    WiFi.mode(WIFI_OFF);
+    delay(100);
+  }
+}
 
 void ClockSyncActivity::onEnter() {
   Activity::onEnter();
-  state = SYNCING;
   syncedTime[0] = '\0';
-  requestUpdate();
+  wifiConnectedOnEnter = WiFi.status() == WL_CONNECTED;
+  connectedInActivity = false;
+
+  if (wifiConnectedOnEnter) {
+    beginSync();
+    return;
+  }
+
+  WiFi.mode(WIFI_STA);
+  openWifiSelection();
 }
 
-void ClockSyncActivity::onExit() { Activity::onExit(); }
+void ClockSyncActivity::onExit() {
+  Activity::onExit();
 
-void ClockSyncActivity::runSync() {
-  if (WiFi.status() != WL_CONNECTED) {
-    LOG_INF("CLK", "Manual sync requested but WiFi is not connected");
+  if (!wifiConnectedOnEnter && connectedInActivity) {
+    wifiOff();
+  }
+}
+
+void ClockSyncActivity::openWifiSelection() {
+  startActivityForResult(std::make_unique<WifiSelectionActivity>(renderer, mappedInput, true),
+                         [this](const ActivityResult& result) { onWifiSelectionComplete(!result.isCancelled); });
+}
+
+void ClockSyncActivity::onWifiSelectionComplete(const bool connected) {
+  if (!connected || WiFi.status() != WL_CONNECTED) {
     state = NO_WIFI;
     requestUpdate();
     return;
   }
 
+  if (!wifiConnectedOnEnter) {
+    connectedInActivity = true;
+  }
+  beginSync();
+}
+
+void ClockSyncActivity::beginSync() {
+  state = SYNCING;
+  requestUpdate();
+}
+
+void ClockSyncActivity::runSync() {
   const bool ok = halClock.syncFromNTP();
   if (!ok) {
     state = FAILED;
@@ -53,7 +95,7 @@ void ClockSyncActivity::runSync() {
 void ClockSyncActivity::loop() {
   if (state == SYNCING) {
     // First-tick: render the "Syncing..." screen, then perform the (blocking) sync.
-    // requestUpdateAndWait below forces the render before we block on WiFi.
+    // requestUpdateAndWait below forces the render before we block on NTP.
     requestUpdateAndWait();
     runSync();
     return;
