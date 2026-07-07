@@ -183,8 +183,6 @@ void StatusBarSettingsActivity::handleSelection() {
       const bool isEnabled = SETTINGS.statusBarClock != CrossPointSettings::STATUS_BAR_CLOCK_HIDE;
       if (!wasEnabled && isEnabled && halClock.isAvailable() && SETTINGS.clockHasBeenSynced) {
         TimeUtils::applySystemClockFromRtc(true);
-      } else if (wasEnabled && !isEnabled) {
-        SETTINGS.normalizeDisplayDay();
       }
       break;
     }

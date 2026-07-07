@@ -454,6 +454,8 @@ class CrossPointSettings {
   bool isHardwareRtcAutoDayClockActive() const;
   bool shouldShowHeaderDate() const;
   bool shouldShowHeaderTime() const;
+  // Clamps corrupt displayDay values on load. Does not downgrade time/both modes when the RTC
+  // is temporarily unavailable; shouldShowHeaderDate/Time gate runtime display instead.
   void normalizeDisplayDay();
   int getRefreshFrequency() const;
   bool getForcedReaderRefreshMode(HalDisplay::RefreshMode& mode) const;
