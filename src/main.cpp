@@ -39,6 +39,7 @@
 #include "util/ButtonNavigator.h"
 #include "util/CprVcodexLogs.h"
 #include "util/ScreenshotUtil.h"
+#include "util/TimeUtils.h"
 
 MappedInputManager mappedInputManager(gpio);
 GfxRenderer renderer(display);
@@ -501,10 +502,14 @@ void setup() {
     ACHIEVEMENTS.loadFromFile();
   }
 
+  if (halClock.isAvailable() && SETTINGS.clockHasBeenSynced) {
+    TimeUtils::applySystemClockFromRtc(true);
+  }
+
   const bool countUsefulStart = !isSilentReboot && !forceHomeBoot &&
                                 wakeupReason != HalGPIO::WakeupReason::AfterUSBPower &&
                                 wakeupReason != HalGPIO::WakeupReason::AfterFlash;
-  const uint8_t syncDayReminderThreshold = SETTINGS.getSyncDayReminderStartThreshold();
+  const uint8_t syncDayReminderThreshold = SETTINGS.getEffectiveSyncDayReminderStartThreshold();
   BootRecovery::enterStage(BootRecovery::BootStage::RouteDecision);
 
   if (HalSystem::isRebootFromPanic() && !forceHomeBoot) {
@@ -646,6 +651,7 @@ void loop() {
 
   const unsigned long activityStartTime = millis();
   activityManager.loop();
+  TimeUtils::tickSystemClockFromRtc();
   const unsigned long activityDuration = millis() - activityStartTime;
 
   const unsigned long loopDuration = millis() - loopStartTime;

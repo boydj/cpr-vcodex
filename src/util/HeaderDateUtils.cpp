@@ -75,7 +75,7 @@ std::string HeaderDateUtils::getDisplayDateText() {
 }
 
 std::string HeaderDateUtils::getSyncDayReminderText() {
-  const uint8_t threshold = SETTINGS.getSyncDayReminderStartThreshold();
+  const uint8_t threshold = SETTINGS.getEffectiveSyncDayReminderStartThreshold();
   return APP_STATE.shouldShowSyncDayReminder(threshold) ? std::string(tr(STR_SYNC_DAY_REMINDER_MESSAGE)) : "";
 }
 

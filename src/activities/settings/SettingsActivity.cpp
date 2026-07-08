@@ -411,6 +411,7 @@ void appendPrewarmText(std::string& text, const std::string& value) { appendPrew
 void SettingsActivity::onEnter() {
   Activity::onEnter();
 
+  settingsListsBuilt = false;
   buildSettingsLists();
 
   // Reset selection to first category
@@ -460,6 +461,9 @@ void SettingsActivity::buildSettingsLists() {
     systemSettings.push_back(&setting);
   }
   for (const auto& setting : deviceApps) {
+    if (setting.nameId == StrId::STR_SYNC_DAY_REMINDER_EVERY && SETTINGS.isHardwareRtcAutoDayClockActive()) {
+      continue;
+    }
     appSettings.push_back(&setting);
   }
   settingsListsBuilt = true;

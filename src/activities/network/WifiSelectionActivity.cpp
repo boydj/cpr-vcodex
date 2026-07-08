@@ -15,6 +15,7 @@
 #include "activities/util/KeyboardEntryActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "util/TimeUtils.h"
 
 #if defined(ESP32) || defined(ARDUINO_ARCH_ESP32)
 #include <esp_mac.h>
@@ -334,6 +335,7 @@ void WifiSelectionActivity::checkConnectionStatus() {
       if (halClock.syncFromNTP()) {
         SETTINGS.clockHasBeenSynced = 1;
         SETTINGS.saveToFile();
+        TimeUtils::applySystemClockFromRtc(true);
       }
     }
 

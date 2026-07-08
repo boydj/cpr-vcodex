@@ -456,7 +456,13 @@ const WebSettingDef* findWebSetting(const char* key) {
 }
 
 bool isWebSettingVisible(const WebSettingDef& setting) {
-  return setting.nameId != StrId::STR_TILT_PAGE_TURN || halTiltSensor.isAvailable();
+  if (setting.nameId == StrId::STR_TILT_PAGE_TURN && !halTiltSensor.isAvailable()) {
+    return false;
+  }
+  if (setting.nameId == StrId::STR_SYNC_DAY_REMINDER_EVERY && SETTINGS.isHardwareRtcAutoDayClockActive()) {
+    return false;
+  }
+  return true;
 }
 }  // namespace
 

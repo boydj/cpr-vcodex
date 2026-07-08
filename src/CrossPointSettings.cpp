@@ -1,5 +1,7 @@
 #include "CrossPointSettings.h"
 
+#include <HalClock.h>
+
 #include <HalStorage.h>
 #include <JsonSettingsIO.h>
 #include <Logging.h>
@@ -363,6 +365,17 @@ uint8_t CrossPointSettings::getSyncDayReminderStartThreshold() const {
     case SYNC_DAY_REMINDER_60:
       return 60;
   }
+}
+
+bool CrossPointSettings::isHardwareRtcAutoDayClockActive() const {
+  return halClock.isAvailable() && statusBarClock != 0;
+}
+
+uint8_t CrossPointSettings::getEffectiveSyncDayReminderStartThreshold() const {
+  if (isHardwareRtcAutoDayClockActive()) {
+    return 0;
+  }
+  return getSyncDayReminderStartThreshold();
 }
 
 int CrossPointSettings::getRefreshFrequency() const {
