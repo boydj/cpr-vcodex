@@ -69,6 +69,13 @@ class CrossPointSettings {
     XTC_STATUS_BAR_TOP = 2,
     XTC_STATUS_BAR_MODE_COUNT
   };
+  // STATUS_BAR_CLOCK_RIGHT = 1 matches the legacy boolean "show clock" value.
+  enum STATUS_BAR_CLOCK {
+    STATUS_BAR_CLOCK_HIDE = 0,
+    STATUS_BAR_CLOCK_RIGHT = 1,
+    STATUS_BAR_CLOCK_LEFT = 2,
+    STATUS_BAR_CLOCK_COUNT
+  };
 
   enum ORIENTATION {
     PORTRAIT = 0,       // 480x800 logical coordinates (current default)
@@ -262,7 +269,7 @@ class CrossPointSettings {
   uint8_t statusBarBattery = 1;
   uint8_t xtcStatusBarMode = XTC_STATUS_BAR_HIDE;
   // Clock display in status bar (X3 only, requires DS3231 RTC)
-  uint8_t statusBarClock = 0;
+  uint8_t statusBarClock = STATUS_BAR_CLOCK_HIDE;
   // Legacy migration field for pre-unified timezone clock offset. No longer shown in UI.
   uint8_t clockUtcOffsetQ = 48;
   // Clock display format: 0 = 24-hour, 1 = 12-hour

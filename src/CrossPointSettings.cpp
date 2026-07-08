@@ -368,7 +368,7 @@ uint8_t CrossPointSettings::getSyncDayReminderStartThreshold() const {
 }
 
 bool CrossPointSettings::isHardwareRtcAutoDayClockActive() const {
-  return halClock.isAvailable() && statusBarClock != 0;
+  return halClock.isAvailable() && statusBarClock != STATUS_BAR_CLOCK_HIDE;
 }
 
 bool CrossPointSettings::shouldShowHeaderDate() const {

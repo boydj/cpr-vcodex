@@ -438,7 +438,7 @@ bool loadSettingsDirect(CrossPointSettings& s, const JsonDocument& doc, bool* ne
   loadEnum("statusBarTitle", s.statusBarTitle, CrossPointSettings::STATUS_BAR_TITLE_COUNT);
   loadToggle("statusBarBattery", s.statusBarBattery);
   loadEnum("xtcStatusBarMode", s.xtcStatusBarMode, CrossPointSettings::XTC_STATUS_BAR_MODE_COUNT);
-  loadToggle("statusBarClock", s.statusBarClock);
+  loadEnum("statusBarClock", s.statusBarClock, CrossPointSettings::STATUS_BAR_CLOCK_COUNT);
   loadEnum("clockFormat", s.clockFormat, static_cast<uint8_t>(2));
   loadToggle("clockHasBeenSynced", s.clockHasBeenSynced);
 

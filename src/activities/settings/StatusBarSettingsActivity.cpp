@@ -62,6 +62,21 @@ const StrId titleNames[TITLE_ITEMS] = {StrId::STR_BOOK, StrId::STR_CHAPTER, StrI
 constexpr int XTC_STATUS_BAR_ITEMS = 3;
 const StrId xtcStatusBarNames[XTC_STATUS_BAR_ITEMS] = {StrId::STR_HIDE, StrId::STR_BOTTOM, StrId::STR_TOP};
 
+constexpr int CLOCK_ITEMS = 3;
+const StrId clockNames[CLOCK_ITEMS] = {StrId::STR_HIDE, StrId::STR_DIR_LEFT, StrId::STR_DIR_RIGHT};
+constexpr uint8_t CLOCK_CYCLE[CLOCK_ITEMS] = {CrossPointSettings::STATUS_BAR_CLOCK_HIDE,
+                                              CrossPointSettings::STATUS_BAR_CLOCK_LEFT,
+                                              CrossPointSettings::STATUS_BAR_CLOCK_RIGHT};
+
+int clockCycleIndex(const uint8_t mode) {
+  for (int i = 0; i < CLOCK_ITEMS; i++) {
+    if (CLOCK_CYCLE[i] == mode) {
+      return i;
+    }
+  }
+  return 0;
+}
+
 const int verticalPreviewPadding = 50;
 const int verticalPreviewTextPadding = 40;
 }  // namespace
@@ -91,6 +106,10 @@ void StatusBarSettingsActivity::onEnter() {
 
   if (SETTINGS.clockFormat >= CLOCK_FORMAT_ITEMS) {
     SETTINGS.clockFormat = 0;
+  }
+
+  if (SETTINGS.statusBarClock >= CrossPointSettings::STATUS_BAR_CLOCK_COUNT) {
+    SETTINGS.statusBarClock = CrossPointSettings::STATUS_BAR_CLOCK_HIDE;
   }
 
   requestUpdate();
@@ -157,11 +176,14 @@ void StatusBarSettingsActivity::handleSelection() {
       SETTINGS.xtcStatusBarMode = (SETTINGS.xtcStatusBarMode + 1) % XTC_STATUS_BAR_ITEMS;
       break;
     case ITEM_CLOCK: {
-      const bool wasEnabled = SETTINGS.statusBarClock != 0;
-      SETTINGS.statusBarClock = (SETTINGS.statusBarClock + 1) % 2;
-      if (!wasEnabled && SETTINGS.statusBarClock && halClock.isAvailable() && SETTINGS.clockHasBeenSynced) {
+      const bool wasEnabled = SETTINGS.statusBarClock != CrossPointSettings::STATUS_BAR_CLOCK_HIDE;
+      int clockIndex = clockCycleIndex(SETTINGS.statusBarClock);
+      clockIndex = (clockIndex + 1) % CLOCK_ITEMS;
+      SETTINGS.statusBarClock = CLOCK_CYCLE[clockIndex];
+      const bool isEnabled = SETTINGS.statusBarClock != CrossPointSettings::STATUS_BAR_CLOCK_HIDE;
+      if (!wasEnabled && isEnabled && halClock.isAvailable() && SETTINGS.clockHasBeenSynced) {
         TimeUtils::applySystemClockFromRtc(true);
-      } else if (wasEnabled && !SETTINGS.statusBarClock) {
+      } else if (wasEnabled && !isEnabled) {
         SETTINGS.normalizeDisplayDay();
       }
       break;
@@ -209,7 +231,7 @@ void StatusBarSettingsActivity::render(RenderLock&&) {
           case ITEM_XTC_STATUS_BAR:
             return I18N.get(xtcStatusBarNames[SETTINGS.xtcStatusBarMode]);
           case ITEM_CLOCK:
-            return SETTINGS.statusBarClock ? tr(STR_SHOW) : tr(STR_HIDE);
+            return I18N.get(clockNames[clockCycleIndex(SETTINGS.statusBarClock)]);
           case ITEM_CLOCK_FORMAT: {
             const uint8_t fmt = SETTINGS.clockFormat < CLOCK_FORMAT_ITEMS ? SETTINGS.clockFormat : 0;
             return std::string(I18N.get(clockFormatNames[fmt]));
