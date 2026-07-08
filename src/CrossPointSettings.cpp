@@ -371,6 +371,33 @@ bool CrossPointSettings::isHardwareRtcAutoDayClockActive() const {
   return halClock.isAvailable() && statusBarClock != 0;
 }
 
+bool CrossPointSettings::shouldShowHeaderDate() const {
+  if (!isHardwareRtcAutoDayClockActive()) {
+    return displayDay != 0;
+  }
+  return displayDay == DISPLAY_HEADER_DATE_ONLY || displayDay == DISPLAY_HEADER_BOTH;
+}
+
+bool CrossPointSettings::shouldShowHeaderTime() const {
+  if (!isHardwareRtcAutoDayClockActive()) {
+    return false;
+  }
+  return displayDay == DISPLAY_HEADER_TIME_ONLY || displayDay == DISPLAY_HEADER_BOTH;
+}
+
+void CrossPointSettings::normalizeDisplayDay() {
+  if (isHardwareRtcAutoDayClockActive()) {
+    if (displayDay >= DISPLAY_HEADER_MODE_COUNT) {
+      displayDay = DISPLAY_HEADER_DATE_ONLY;
+    }
+    return;
+  }
+  if (displayDay >= DISPLAY_HEADER_TIME_ONLY) {
+    displayDay = DISPLAY_HEADER_DATE_ONLY;
+  }
+  displayDay = displayDay ? DISPLAY_HEADER_DATE_ONLY : DISPLAY_HEADER_OFF;
+}
+
 uint8_t CrossPointSettings::getEffectiveSyncDayReminderStartThreshold() const {
   if (isHardwareRtcAutoDayClockActive()) {
     return 0;

@@ -88,10 +88,6 @@ void civilFromDays(int z, int& year, unsigned& month, unsigned& day) {
 
 void TimeUtils::configureTimezone() {
   const uint8_t preset = TimeZoneRegistry::clampPresetIndex(SETTINGS.timeZonePreset);
-  if (configuredTimeZonePreset == preset) {
-    return;
-  }
-
   setenv("TZ", TimeZoneRegistry::getPresetPosixTz(preset), 1);
   tzset();
   configuredTimeZonePreset = preset;

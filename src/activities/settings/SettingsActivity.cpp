@@ -16,6 +16,7 @@
 #include "AchievementsStore.h"
 #include "ButtonRemapActivity.h"
 #include "ClearCacheActivity.h"
+#include "ClockSyncActivity.h"
 #include "CrossPointSettings.h"
 #include "FontDownloadActivity.h"
 #include "FontSelectionActivity.h"
@@ -435,18 +436,15 @@ void SettingsActivity::buildSettingsLists() {
   const auto& deviceReader = getDeviceReaderSettings();
   const auto& deviceControls = getDeviceControlsSettings();
   const auto& deviceSystem = getDeviceSystemSettings();
-  const auto& deviceApps = getDeviceOnlyAppSettings();
   displaySettings.clear();
   readerSettings.clear();
   controlsSettings.clear();
   systemSettings.clear();
-  appSettings.clear();
 
   displaySettings.reserve(deviceDisplay.size());
   readerSettings.reserve(deviceReader.size());
   controlsSettings.reserve(deviceControls.size());
   systemSettings.reserve(deviceSystem.size());
-  appSettings.reserve(deviceApps.size());
 
   for (const auto& setting : deviceDisplay) {
     displaySettings.push_back(&setting);
@@ -460,13 +458,40 @@ void SettingsActivity::buildSettingsLists() {
   for (const auto& setting : deviceSystem) {
     systemSettings.push_back(&setting);
   }
+  rebuildAppSettingsList();
+  settingsListsBuilt = true;
+}
+
+void SettingsActivity::rebuildAppSettingsList() {
+  const auto& deviceApps = getDeviceOnlyAppSettings();
+  appSettings.clear();
+  appSettingOverrides.clear();
+  appSettings.reserve(deviceApps.size());
+
+  const bool rtcClockActive = SETTINGS.isHardwareRtcAutoDayClockActive();
+  if (rtcClockActive) {
+    // Two overrides replace Sync Day + Display Day entries; reserve so stored pointers stay valid.
+    appSettingOverrides.reserve(2);
+  }
   for (const auto& setting : deviceApps) {
-    if (setting.nameId == StrId::STR_SYNC_DAY_REMINDER_EVERY && SETTINGS.isHardwareRtcAutoDayClockActive()) {
+    if (setting.nameId == StrId::STR_SYNC_DAY_REMINDER_EVERY && rtcClockActive) {
+      continue;
+    }
+    if (rtcClockActive && setting.nameId == StrId::STR_SYNC_DAY && setting.type == SettingType::ACTION) {
+      appSettingOverrides.push_back(SettingInfo::Action(StrId::STR_CLOCK_SYNC_NOW, SettingAction::ClockSync));
+      appSettings.push_back(&appSettingOverrides.back());
+      continue;
+    }
+    if (rtcClockActive && setting.nameId == StrId::STR_DISPLAY_DAY && setting.type == SettingType::TOGGLE) {
+      appSettingOverrides.push_back(SettingInfo::Enum(
+          StrId::STR_DISPLAY_DAY_TIME, &CrossPointSettings::displayDay,
+          {StrId::STR_STATE_OFF, StrId::STR_DISPLAY_DATE_ONLY, StrId::STR_DISPLAY_TIME_ONLY,
+           StrId::STR_DISPLAY_DAY_AND_TIME}));
+      appSettings.push_back(&appSettingOverrides.back());
       continue;
     }
     appSettings.push_back(&setting);
   }
-  settingsListsBuilt = true;
 }
 
 void SettingsActivity::onExit() {
@@ -491,6 +516,7 @@ void SettingsActivity::enterCategory(const int categoryIndex) {
       currentSettings = &systemSettings;
       break;
     default:
+      rebuildAppSettingsList();
       currentSettings = &appSettings;
       break;
   }
@@ -676,6 +702,9 @@ void SettingsActivity::toggleCurrentSetting() {
         break;
       case SettingAction::SyncDay:
         startActivityForResult(std::make_unique<SyncDayActivity>(renderer, mappedInput), resultHandler);
+        break;
+      case SettingAction::ClockSync:
+        startActivityForResult(std::make_unique<ClockSyncActivity>(renderer, mappedInput), resultHandler);
         break;
       case SettingAction::TimeZone:
         startActivityForResult(std::make_unique<TimeZoneSelectActivity>(renderer, mappedInput), resultHandler);

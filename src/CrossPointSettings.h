@@ -184,6 +184,13 @@ class CrossPointSettings {
   // UI Theme
   enum UI_THEME { LYRA = 0, LYRA_CUSTOM = 1, LYRA_CAROUSEL = 2, UI_THEME_COUNT };
   enum DATE_FORMAT { DATE_DD_MM_YYYY = 0, DATE_MM_DD_YYYY = 1, DATE_YYYY_MM_DD = 2, DATE_FORMAT_COUNT };
+  enum DISPLAY_HEADER {
+    DISPLAY_HEADER_OFF = 0,
+    DISPLAY_HEADER_DATE_ONLY = 1,
+    DISPLAY_HEADER_TIME_ONLY = 2,
+    DISPLAY_HEADER_BOTH = 3,
+    DISPLAY_HEADER_MODE_COUNT = 4,
+  };
   enum SYNC_DAY_WIFI_CHOICE { SYNC_DAY_WIFI_AUTO = 0, SYNC_DAY_WIFI_MANUAL = 1, SYNC_DAY_WIFI_CHOICE_COUNT };
   enum DAILY_GOAL_TARGET {
     DAILY_GOAL_15_MIN = 0,
@@ -438,6 +445,9 @@ class CrossPointSettings {
   uint8_t getSyncDayReminderStartThreshold() const;
   uint8_t getEffectiveSyncDayReminderStartThreshold() const;
   bool isHardwareRtcAutoDayClockActive() const;
+  bool shouldShowHeaderDate() const;
+  bool shouldShowHeaderTime() const;
+  void normalizeDisplayDay();
   int getRefreshFrequency() const;
   bool getForcedReaderRefreshMode(HalDisplay::RefreshMode& mode) const;
 };

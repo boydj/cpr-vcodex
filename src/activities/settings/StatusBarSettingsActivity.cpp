@@ -161,6 +161,8 @@ void StatusBarSettingsActivity::handleSelection() {
       SETTINGS.statusBarClock = (SETTINGS.statusBarClock + 1) % 2;
       if (!wasEnabled && SETTINGS.statusBarClock && halClock.isAvailable() && SETTINGS.clockHasBeenSynced) {
         TimeUtils::applySystemClockFromRtc(true);
+      } else if (wasEnabled && !SETTINGS.statusBarClock) {
+        SETTINGS.normalizeDisplayDay();
       }
       break;
     }

@@ -27,6 +27,7 @@ namespace {
 
 void ClockSyncActivity::onEnter() {
   Activity::onEnter();
+  TimeUtils::configureTimezone();
   syncedTime[0] = '\0';
   wifiConnectedOnEnter = WiFi.status() == WL_CONNECTED;
   connectedInActivity = false;
