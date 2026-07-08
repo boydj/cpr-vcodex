@@ -254,7 +254,7 @@ const std::vector<SettingInfo>& getSettingsList() {
         // on next WiFi connect, which is useful when crossing time zones.
         SettingInfo::Toggle(StrId::STR_CLOCK_SYNCED, &CrossPointSettings::clockHasBeenSynced, "clockHasBeenSynced",
                             StrId::STR_CUSTOMISE_STATUS_BAR),
-        
+
     };
 
     if (!halTiltSensor.isAvailable()) {

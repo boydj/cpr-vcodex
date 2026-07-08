@@ -6,6 +6,8 @@
 #include <time.h>
 
 #include <cassert>
+#include <cstdlib>
+#include <cstring>
 
 HalClock halClock;  // Singleton instance
 
@@ -19,14 +21,74 @@ HalClock halClock;  // Singleton instance
 //   0x06: Year      (00-99, offset from century bit)
 
 namespace {
+constexpr time_t VALID_UTC_EPOCH = static_cast<time_t>(1704067200UL);  // 2024-01-01 UTC
+
 uint8_t bcdToDec(uint8_t bcd) { return ((bcd >> 4) * 10) + (bcd & 0x0F); }
 uint8_t decToBcd(uint8_t dec) { return ((dec / 10) << 4) | (dec % 10); }
 
-time_t utcTmToEpoch(struct tm& utc) {
-  utc.tm_isdst = 0;
-  setenv("TZ", "UTC0", 1);
-  tzset();
-  return mktime(&utc);
+class ScopedTimezone {
+ public:
+  explicit ScopedTimezone(const char* tz) {
+    const char* current = getenv("TZ");
+    if (current) {
+      hadPrevious = true;
+      strncpy(previous, current, sizeof(previous) - 1);
+      previous[sizeof(previous) - 1] = '\0';
+    }
+    setenv("TZ", tz, 1);
+    tzset();
+  }
+
+  ~ScopedTimezone() {
+    if (hadPrevious) {
+      setenv("TZ", previous, 1);
+    } else {
+      unsetenv("TZ");
+    }
+    tzset();
+  }
+
+ private:
+  char previous[96] = {};
+  bool hadPrevious = false;
+};
+
+time_t utcTmToEpoch(const struct tm& utc) {
+  struct tm copy = utc;
+  copy.tm_isdst = 0;
+  ScopedTimezone timezone("UTC0");
+  return mktime(&copy);
+}
+
+bool isValidEpoch(const time_t epoch) { return epoch >= VALID_UTC_EPOCH; }
+
+bool syncSystemClockFromNtpUtc() {
+  LOG_INF("CLK", "Starting NTP sync...");
+  if (esp_sntp_enabled()) {
+    esp_sntp_stop();
+  }
+
+  const bool initialClockValid = isValidEpoch(time(nullptr));
+  esp_sntp_setoperatingmode(ESP_SNTP_OPMODE_POLL);
+  esp_sntp_setservername(0, "pool.ntp.org");
+  esp_sntp_setservername(1, "time.nist.gov");
+  esp_sntp_init();
+
+  constexpr int maxAttempts = 50;
+  for (int i = 0; i < maxAttempts; i++) {
+    const time_t currentTime = time(nullptr);
+    const bool currentClockValid = isValidEpoch(currentTime);
+    const bool syncCompleted = sntp_get_sync_status() == SNTP_SYNC_STATUS_COMPLETED;
+    const bool clockJumpedToValid = !initialClockValid && currentClockValid;
+
+    if ((syncCompleted || clockJumpedToValid) && currentClockValid) {
+      return true;
+    }
+    delay(100);
+  }
+
+  LOG_ERR("CLK", "NTP sync timed out");
+  return false;
 }
 
 bool isValidUtcTm(const struct tm& utc) {
@@ -48,8 +110,8 @@ bool isValidUtcTm(const struct tm& utc) {
   if (utc.tm_sec < 0 || utc.tm_sec > 59) {
     return false;
   }
-  const time_t epoch = utcTmToEpoch(const_cast<struct tm&>(utc));
-  return epoch >= static_cast<time_t>(1704067200UL);
+  const time_t epoch = utcTmToEpoch(utc);
+  return isValidEpoch(epoch);
 }
 }  // namespace
 
@@ -228,26 +290,18 @@ bool HalClock::syncFromNTP() {
     return false;
   }
 
-  LOG_INF("CLK", "Starting NTP sync...");
-  configTzTime("UTC0", "pool.ntp.org", "time.nist.gov");
-
-  constexpr int maxAttempts = 50;
-  for (int i = 0; i < maxAttempts; i++) {
-    if (sntp_get_sync_status() == SNTP_SYNC_STATUS_COMPLETED) {
-      const time_t now = time(nullptr);
-      struct tm utc{};
-      gmtime_r(&now, &utc);
-
-      if (writeUtcTm(utc)) {
-        LOG_INF("CLK", "RTC set to %04d-%02d-%02d %02d:%02d:%02d UTC", utc.tm_year + 1900, utc.tm_mon + 1, utc.tm_mday,
-                utc.tm_hour, utc.tm_min, utc.tm_sec);
-        return true;
-      }
-      return false;
-    }
-    delay(100);
+  if (!syncSystemClockFromNtpUtc()) {
+    return false;
   }
 
-  LOG_ERR("CLK", "NTP sync timed out");
+  const time_t now = time(nullptr);
+  struct tm utc{};
+  gmtime_r(&now, &utc);
+
+  if (writeUtcTm(utc)) {
+    LOG_INF("CLK", "RTC set to %04d-%02d-%02d %02d:%02d:%02d UTC", utc.tm_year + 1900, utc.tm_mon + 1, utc.tm_mday,
+            utc.tm_hour, utc.tm_min, utc.tm_sec);
+    return true;
+  }
   return false;
 }
