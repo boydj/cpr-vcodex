@@ -136,6 +136,7 @@ class ChapterHtmlSlimParser {
   bool currentTableCellIsHeader = false;
   uint8_t currentTableCellColSpan = 1;
   std::unique_ptr<BufferedTable> currentTableBuffer = nullptr;
+  bool listItemBulletOnly = false;  // true when currentTextBlock has only the <li> bullet
 
   // Anchor-to-page mapping: tracks which page each HTML id attribute lands on
   int completedPageCount = 0;
