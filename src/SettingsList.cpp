@@ -169,7 +169,7 @@ const std::vector<SettingInfo>& getSettingsList() {
         SettingInfo::Enum(StrId::STR_MENU_RECENT_BOOKS, &CrossPointSettings::recentBooksShortcut,
                           {StrId::STR_HOME_LOCATION, StrId::STR_APPS}, "recentBooksShortcut",
                           StrId::STR_SHORTCUTS_SECTION),
-        SettingInfo::Enum(StrId::STR_BOOKMARKS, &CrossPointSettings::bookmarksShortcut,
+        SettingInfo::Enum(StrId::STR_HIGHLIGHTS, &CrossPointSettings::bookmarksShortcut,
                           {StrId::STR_HOME_LOCATION, StrId::STR_APPS}, "bookmarksShortcut",
                           StrId::STR_SHORTCUTS_SECTION),
         SettingInfo::Enum(StrId::STR_FAVORITES, &CrossPointSettings::favoritesShortcut,

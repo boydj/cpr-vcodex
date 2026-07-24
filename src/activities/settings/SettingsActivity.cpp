@@ -222,7 +222,7 @@ const std::vector<SettingInfo>& getDeviceOnlyAppSettings() {
       SettingInfo::Action(StrId::STR_RESET_ACHIEVEMENTS, SettingAction::ResetAchievements),
       SettingInfo::Action(StrId::STR_SYNC_WITH_PREV_STATS, SettingAction::SyncAchievementsFromStats),
       SettingInfo::Section(StrId::STR_APPS),
-      SettingInfo::Action(StrId::STR_BOOKMARKS, SettingAction::Bookmarks),
+      SettingInfo::Action(StrId::STR_HIGHLIGHTS, SettingAction::Bookmarks),
       SettingInfo::Action(StrId::STR_FAVORITES, SettingAction::Favorites),
       SettingInfo::Action(StrId::STR_SCREEN_CLEAN, SettingAction::ScreenClean),
       SettingInfo::Action(StrId::STR_SLEEP, SettingAction::SleepApp),

@@ -31,7 +31,7 @@ Some of the main additions include:
 - per-book statistics tools, including reading-time correction, start-date editing, and per-book stats reset
 - StarDict dictionary support from the SD card, with selectable monolingual and translation dictionaries, per-language folders, reader word lookup, suggestions, and lookup history
 - offline Flashcards with CSV decks, multiple study modes, recents, stats, and session summaries
-- EPUB bookmarks with explicit reader-menu actions plus a global bookmarks app
+- unified EPUB Highlights for selected text and saved pages, with a global Highlights app and backward-compatible bookmark storage
 - customizable Home and Apps shortcuts, reader quick settings, reading layouts, themes, and Lyra Carousel workflow improvements
 - enhanced sleep tools, including custom image directories, cover/custom stats screens, sleep previews, cached sleep frames, and configurable clean sleep refresh
 - downloadable and manually installable SD-card fonts, including vCodex-only families such as `ChareInk`
@@ -203,7 +203,7 @@ This project is **not affiliated with Xteink**.
 - downloadable SD-card fonts from CrossPoint plus vCodex-only families such as `ChareInk`
 - SD-card firmware update from Settings for local `.bin` flashing without a browser
 - configurable long-press side-button behavior: `Off`, `Chapter skip`, or `Orientation change`
-- EPUB bookmarks plus a global bookmarks app
+- EPUB Highlights for selected text and saved pages, plus a global Highlights app
 - context-aware screenshot filenames that include the current book title when available
 - KOReader Sync compatibility improvements, including Calibre-Web-Automated `/kosync` support
 - configurable OPDS download filename format: `Author - Title` or `Title - Author`
@@ -287,7 +287,7 @@ That is enough to start using the core `vcodex` additions: coherent day-based an
 | `SD card fonts` | download, upload, or manually install extra `.cpfont` families from the SD card | [Settings](#settings) |
 | `SD firmware update` | select a `.bin` from the SD card and flash it locally from Settings | [Settings](#settings) |
 | `Long-press button behavior` | choose `Off`, `Chapter skip`, or `Orientation change` for reader side-button holds | [Settings](#settings) |
-| `Bookmarks` | EPUB bookmarks plus a global bookmarks app | [Bookmarks](#bookmarks) |
+| `Highlights` | selected EPUB text and saved pages in one backward-compatible app | [Highlights](#highlights) |
 | `Sleep tools` | folder selection, preview, cache, sequential and shuffle behavior | [Sleep](#sleep) |
 | `Text Darkness` | global `Normal / Dark / Extra Dark` text rendering control, based on the idea first seen in `crosspet` | [Settings](#settings) |
 | `Bionic Reading` | `Off / Normal / Subtle` EPUB focus-reading modes with stable text weight in BW and anti-aliased rendering | [Settings](#settings) |
@@ -446,20 +446,31 @@ How it works:
 - common filename/encoding variants are tolerated, including case differences, `if_found.txt.txt`, UTF-8 BOM, and UTF-16 text files
 - if the file does not exist, the app shows a fallback message explaining how to create it
 
-## Bookmarks
+## Highlights
 
-Bookmarks are implemented for EPUB and work in two ways:
+Highlights are implemented for EPUB as one feature with two entry types:
 
-- inside the reader
-- from the global `Apps > Bookmarks` screen
+- text highlights for a selected phrase
+- page marks, preserving the behavior and data of the previous Bookmarks feature
 
 Supported flow:
 
-- long-press `Select` inside EPUB reading to toggle bookmark
-- open the reader menu and choose `View bookmarks`
-- open the reader menu and choose `Save bookmark` to save the current page without removing an existing bookmark
-- reopen a book directly at a saved bookmark from the global bookmarks app
-- delete individual bookmarks or all bookmarks for one book
+- open the reader menu and choose `Highlight text`; select the first and last word, then save
+- long-press `Select` inside EPUB reading to toggle a page mark
+- use `Save page mark` when the current page should be kept without toggling it
+- open `View highlights` or the global `Apps > Highlights` screen to browse both types together
+- reopen a book at the saved page and delete individual entries or all highlights for one book
+
+Existing `bookmarks.bin` files remain readable. They are upgraded in place only when
+the user next changes the book's Highlights, and all old bookmarks become page-mark
+entries rather than being discarded.
+
+The text-selection and on-page highlighting behavior is adapted from
+[CrossInk](https://github.com/uxjulia/CrossInk) by
+[Julia Nguyen (`uxjulia`)](https://github.com/uxjulia), beginning with CrossInk
+commit [`b4d0ee1`](https://github.com/uxjulia/CrossInk/commit/b4d0ee190480fb3c9a175f09daab9dede3ca467a)
+and incorporating relevant later robustness fixes through
+[`ffda6de`](https://github.com/uxjulia/CrossInk/commit/ffda6de71554a53f60b861ef08ad6770426b4ac5).
 
 ## Flashcards
 
@@ -565,7 +576,7 @@ Important artifacts include:
 - `/.crosspoint/reading_stats.json`
 - `/.crosspoint/achievements.json`
 - `/.crosspoint/recent.json`
-- per-book `bookmarks.bin`
+- per-book `bookmarks.bin`, now a versioned Highlights store that retains legacy page bookmarks
 - `/exports/*.json` for reading stats export/import
 
 This is one of the main reasons the fork was rebuilt on a cleaner upstream-derived base instead of continuing to patch the older fork in place.
@@ -666,6 +677,9 @@ Huge credit goes to:
 - the Xteink X4 community around the firmware ecosystem
 - [zgredex](https://github.com/zgredex) for the original `Lyra Carousel` Home theme
 - [erickosanchezj](https://github.com/erickosanchezj) for adapting `Lyra Carousel` to CPR-vCodex
+- [Julia Nguyen (`uxjulia`)](https://github.com/uxjulia) and her
+  [CrossInk](https://github.com/uxjulia/CrossInk) fork for the original clipping/highlighting feature adapted into
+  CPR-vCodex Highlights
 - Which-Estimate4566 for the logo artwork used in the docs
 
 ---

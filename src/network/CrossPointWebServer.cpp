@@ -409,7 +409,7 @@ constexpr WebSettingDef WEB_SETTINGS[] = {
              StrId::STR_SHORTCUTS_SECTION),
     WEB_ENUM(StrId::STR_MENU_RECENT_BOOKS, recentBooksShortcut, OPT_SHORTCUT_LOCATION, "recentBooksShortcut",
              StrId::STR_SHORTCUTS_SECTION),
-    WEB_ENUM(StrId::STR_BOOKMARKS, bookmarksShortcut, OPT_SHORTCUT_LOCATION, "bookmarksShortcut",
+    WEB_ENUM(StrId::STR_HIGHLIGHTS, bookmarksShortcut, OPT_SHORTCUT_LOCATION, "bookmarksShortcut",
              StrId::STR_SHORTCUTS_SECTION),
     WEB_ENUM(StrId::STR_FAVORITES, favoritesShortcut, OPT_SHORTCUT_LOCATION, "favoritesShortcut",
              StrId::STR_SHORTCUTS_SECTION),
