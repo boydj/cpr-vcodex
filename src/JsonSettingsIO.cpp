@@ -272,6 +272,31 @@ void applyLegacyStatusBarSettings(CrossPointSettings& settings) {
   }
 }
 
+namespace {
+  void migrateDisplayHeaderSettings(CrossPointSettings& s, const JsonDocument& doc, bool* needsResave) {
+    if (doc["displayHeaderTime"].isNull()) {
+      return;
+    }
+
+    const uint8_t headerTime = doc["displayHeaderTime"] | static_cast<uint8_t>(0);
+    if (headerTime > 1) {
+      return;
+    }
+
+    if (headerTime) {
+      if (s.displayDay == CrossPointSettings::DISPLAY_HEADER_OFF) {
+        s.displayDay = CrossPointSettings::DISPLAY_HEADER_TIME_ONLY;
+      } else if (s.displayDay == CrossPointSettings::DISPLAY_HEADER_DATE_ONLY) {
+        s.displayDay = CrossPointSettings::DISPLAY_HEADER_BOTH;
+      }
+    }
+
+    if (needsResave) {
+      *needsResave = true;
+    }
+  }
+}
+
 bool loadSettingsDirect(CrossPointSettings& s, const JsonDocument& doc, bool* needsResave) {
   auto clamp = [](uint8_t val, uint8_t maxVal, uint8_t def) -> uint8_t { return val < maxVal ? val : def; };
   auto loadToggle = [&](const char* key, uint8_t& field) {
@@ -413,6 +438,9 @@ bool loadSettingsDirect(CrossPointSettings& s, const JsonDocument& doc, bool* ne
   loadEnum("statusBarTitle", s.statusBarTitle, CrossPointSettings::STATUS_BAR_TITLE_COUNT);
   loadToggle("statusBarBattery", s.statusBarBattery);
   loadEnum("xtcStatusBarMode", s.xtcStatusBarMode, CrossPointSettings::XTC_STATUS_BAR_MODE_COUNT);
+  loadEnum("statusBarClock", s.statusBarClock, CrossPointSettings::STATUS_BAR_CLOCK_COUNT);
+  loadEnum("clockFormat", s.clockFormat, static_cast<uint8_t>(2));
+  loadToggle("clockHasBeenSynced", s.clockHasBeenSynced);
 
   using S = CrossPointSettings;
   s.frontButtonBack =
@@ -424,7 +452,8 @@ bool loadSettingsDirect(CrossPointSettings& s, const JsonDocument& doc, bool* ne
   s.frontButtonRight =
       clamp(doc["frontButtonRight"] | (uint8_t)S::FRONT_HW_RIGHT, S::FRONT_BUTTON_HARDWARE_COUNT, S::FRONT_HW_RIGHT);
   s.homeBookSource = clamp(doc["homeBookSource"] | s.homeBookSource, S::HOME_BOOK_SOURCE_COUNT, s.homeBookSource);
-  s.displayDay = clamp(doc["displayDay"] | s.displayDay, static_cast<uint8_t>(2), s.displayDay);
+  s.displayDay = clamp(doc["displayDay"] | s.displayDay, S::DISPLAY_HEADER_MODE_COUNT, s.displayDay);
+  migrateDisplayHeaderSettings(s, doc, needsResave);
   s.autoSyncDay = clamp(doc["autoSyncDay"] | s.autoSyncDay, static_cast<uint8_t>(2), s.autoSyncDay);
   s.syncDayWifiChoice =
       clamp(doc["syncDayWifiChoice"] | s.syncDayWifiChoice, S::SYNC_DAY_WIFI_CHOICE_COUNT, s.syncDayWifiChoice);
@@ -577,6 +606,7 @@ bool loadSettingsDirect(CrossPointSettings& s, const JsonDocument& doc, bool* ne
   migrateLegacyStatsShortcut(s, doc, needsResave);
   normalizeShortcutOrderSettings(s);
   CrossPointSettings::validateFrontButtonMapping(s);
+  s.normalizeDisplayDay();
 
   LOG_DBG("CPS", "Settings loaded from file");
   return true;
@@ -777,6 +807,9 @@ bool JsonSettingsIO::saveSettings(const CrossPointSettings& s, const char* path)
   doc["statusBarTitle"] = s.statusBarTitle;
   doc["statusBarBattery"] = s.statusBarBattery;
   doc["xtcStatusBarMode"] = s.xtcStatusBarMode;
+  doc["statusBarClock"] = s.statusBarClock;
+  doc["clockFormat"] = s.clockFormat;
+  doc["clockHasBeenSynced"] = s.clockHasBeenSynced;
 
   // Front button remap - managed by RemapFrontButtons sub-activity, not in SettingsList.
   doc["frontButtonBack"] = s.frontButtonBack;
@@ -939,7 +972,8 @@ bool JsonSettingsIO::loadSettings(CrossPointSettings& s, const char* json, bool*
       clamp(doc["frontButtonLeft"] | (uint8_t)S::FRONT_HW_LEFT, S::FRONT_BUTTON_HARDWARE_COUNT, S::FRONT_HW_LEFT);
   s.frontButtonRight =
       clamp(doc["frontButtonRight"] | (uint8_t)S::FRONT_HW_RIGHT, S::FRONT_BUTTON_HARDWARE_COUNT, S::FRONT_HW_RIGHT);
-  s.displayDay = clamp(doc["displayDay"] | s.displayDay, static_cast<uint8_t>(2), s.displayDay);
+  s.displayDay = clamp(doc["displayDay"] | s.displayDay, S::DISPLAY_HEADER_MODE_COUNT, s.displayDay);
+  migrateDisplayHeaderSettings(s, doc, needsResave);
   s.autoSyncDay = clamp(doc["autoSyncDay"] | s.autoSyncDay, static_cast<uint8_t>(2), s.autoSyncDay);
   s.syncDayWifiChoice =
       clamp(doc["syncDayWifiChoice"] | s.syncDayWifiChoice, S::SYNC_DAY_WIFI_CHOICE_COUNT, s.syncDayWifiChoice);

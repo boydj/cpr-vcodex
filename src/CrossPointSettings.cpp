@@ -1,5 +1,7 @@
 #include "CrossPointSettings.h"
 
+#include <HalClock.h>
+
 #include <HalStorage.h>
 #include <JsonSettingsIO.h>
 #include <Logging.h>
@@ -363,6 +365,43 @@ uint8_t CrossPointSettings::getSyncDayReminderStartThreshold() const {
     case SYNC_DAY_REMINDER_60:
       return 60;
   }
+}
+
+bool CrossPointSettings::isHardwareRtcAutoDayClockActive() const {
+  return halClock.isAvailable() && statusBarClock != STATUS_BAR_CLOCK_HIDE;
+}
+
+bool CrossPointSettings::shouldShowHeaderDate() const {
+  if (!isHardwareRtcAutoDayClockActive()) {
+    // Legacy X4 boolean mode, or X3 while the RTC/status-bar clock is inactive: show the
+    // reading-stats date only for explicit date-on. Time/both modes stay stored but hidden
+    // until isHardwareRtcAutoDayClockActive() becomes true again.
+    if (displayDay >= DISPLAY_HEADER_TIME_ONLY) {
+      return false;
+    }
+    return displayDay != DISPLAY_HEADER_OFF;
+  }
+  return displayDay == DISPLAY_HEADER_DATE_ONLY || displayDay == DISPLAY_HEADER_BOTH;
+}
+
+bool CrossPointSettings::shouldShowHeaderTime() const {
+  if (!isHardwareRtcAutoDayClockActive()) {
+    return false;
+  }
+  return displayDay == DISPLAY_HEADER_TIME_ONLY || displayDay == DISPLAY_HEADER_BOTH;
+}
+
+void CrossPointSettings::normalizeDisplayDay() {
+  if (displayDay >= DISPLAY_HEADER_MODE_COUNT) {
+    displayDay = DISPLAY_HEADER_DATE_ONLY;
+  }
+}
+
+uint8_t CrossPointSettings::getEffectiveSyncDayReminderStartThreshold() const {
+  if (isHardwareRtcAutoDayClockActive()) {
+    return 0;
+  }
+  return getSyncDayReminderStartThreshold();
 }
 
 int CrossPointSettings::getRefreshFrequency() const {

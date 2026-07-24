@@ -1,5 +1,6 @@
 #include "SettingsList.h"
 
+#include <HalClock.h>
 #include <HalTiltSensor.h>
 #include <I18n.h>
 
@@ -242,6 +243,18 @@ const std::vector<SettingInfo>& getSettingsList() {
                           StrId::STR_CUSTOMISE_STATUS_BAR),
         SettingInfo::Toggle(StrId::STR_BATTERY, &CrossPointSettings::statusBarBattery, "statusBarBattery",
                             StrId::STR_CUSTOMISE_STATUS_BAR),
+        // Clock entries (status bar uses the shared Sync Day timezone preset).
+        SettingInfo::Enum(StrId::STR_CLOCK, &CrossPointSettings::statusBarClock,
+                          {StrId::STR_HIDE, StrId::STR_DIR_RIGHT, StrId::STR_DIR_LEFT}, "statusBarClock",
+                          StrId::STR_CUSTOMISE_STATUS_BAR),
+        SettingInfo::Enum(StrId::STR_CLOCK_FORMAT, &CrossPointSettings::clockFormat,
+                            {StrId::STR_CLOCK_FORMAT_24H, StrId::STR_CLOCK_FORMAT_12H}, "clockFormat",
+                            StrId::STR_CUSTOMISE_STATUS_BAR),
+        // Persistence flag for NTP debounce. Resetting from the web UI forces a re-sync
+        // on next WiFi connect, which is useful when crossing time zones.
+        SettingInfo::Toggle(StrId::STR_CLOCK_SYNCED, &CrossPointSettings::clockHasBeenSynced, "clockHasBeenSynced",
+                            StrId::STR_CUSTOMISE_STATUS_BAR),
+
     };
 
     if (!halTiltSensor.isAvailable()) {
