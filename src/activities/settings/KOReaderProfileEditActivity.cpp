@@ -7,6 +7,7 @@
 #include <cstring>
 
 #include "MappedInputManager.h"
+#include "activities/util/ConfirmationActivity.h"
 #include "activities/util/KeyboardEntryActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
@@ -164,17 +165,30 @@ void KOReaderProfileEditActivity::handleSelection() {
     requestUpdate();
   } else if (selectedIndex == 5 && !isNewProfile) {
     // Set as Active — persists as the new default for auto-sync and future syncs.
-    KOREADER_STORE.setActiveIndex(static_cast<size_t>(profileIndex));
+    if (!KOREADER_STORE.setActiveIndex(static_cast<size_t>(profileIndex))) {
+      LOG_ERR("KRS", "Failed to set active KOReader profile at index %d", profileIndex);
+      showSaveError = true;
+    } else {
+      showSaveError = false;
+    }
     requestUpdate();
   } else if (selectedIndex == 6 && !isNewProfile) {
-    // Delete flow is only available for existing profiles.
-    if (!KOREADER_STORE.removeProfile(static_cast<size_t>(profileIndex))) {
-      LOG_ERR("KRS", "Failed to remove KOReader profile at index %d", profileIndex);
-      showSaveError = true;
-      requestUpdate();
-      return;
-    }
-    finish();
+    const std::string profileLabel = editProfile.name.empty() ? editProfile.username : editProfile.name;
+    startActivityForResult(
+        std::make_unique<ConfirmationActivity>(renderer, mappedInput, tr(STR_DELETE_PROFILE), profileLabel),
+        [this](const ActivityResult& result) {
+          if (result.isCancelled) {
+            requestUpdate(true);
+            return;
+          }
+          if (!KOREADER_STORE.removeProfile(static_cast<size_t>(profileIndex))) {
+            LOG_ERR("KRS", "Failed to remove KOReader profile at index %d", profileIndex);
+            showSaveError = true;
+            requestUpdate(true);
+            return;
+          }
+          finish();
+        });
   }
 }
 
