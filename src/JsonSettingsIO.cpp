@@ -275,29 +275,29 @@ void applyLegacyStatusBarSettings(CrossPointSettings& settings) {
 }
 
 namespace {
-  void migrateDisplayHeaderSettings(CrossPointSettings& s, const JsonDocument& doc, bool* needsResave) {
-    if (doc["displayHeaderTime"].isNull()) {
-      return;
-    }
+void migrateDisplayHeaderSettings(CrossPointSettings& s, const JsonDocument& doc, bool* needsResave) {
+  if (doc["displayHeaderTime"].isNull()) {
+    return;
+  }
 
-    const uint8_t headerTime = doc["displayHeaderTime"] | static_cast<uint8_t>(0);
-    if (headerTime > 1) {
-      return;
-    }
+  const uint8_t headerTime = doc["displayHeaderTime"] | static_cast<uint8_t>(0);
+  if (headerTime > 1) {
+    return;
+  }
 
-    if (headerTime) {
-      if (s.displayDay == CrossPointSettings::DISPLAY_HEADER_OFF) {
-        s.displayDay = CrossPointSettings::DISPLAY_HEADER_TIME_ONLY;
-      } else if (s.displayDay == CrossPointSettings::DISPLAY_HEADER_DATE_ONLY) {
-        s.displayDay = CrossPointSettings::DISPLAY_HEADER_BOTH;
-      }
-    }
-
-    if (needsResave) {
-      *needsResave = true;
+  if (headerTime) {
+    if (s.displayDay == CrossPointSettings::DISPLAY_HEADER_OFF) {
+      s.displayDay = CrossPointSettings::DISPLAY_HEADER_TIME_ONLY;
+    } else if (s.displayDay == CrossPointSettings::DISPLAY_HEADER_DATE_ONLY) {
+      s.displayDay = CrossPointSettings::DISPLAY_HEADER_BOTH;
     }
   }
+
+  if (needsResave) {
+    *needsResave = true;
+  }
 }
+}  // namespace
 
 bool loadSettingsDirect(CrossPointSettings& s, const JsonDocument& doc, bool* needsResave) {
   auto clamp = [](uint8_t val, uint8_t maxVal, uint8_t def) -> uint8_t { return val < maxVal ? val : def; };

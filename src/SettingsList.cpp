@@ -45,7 +45,7 @@ const std::vector<SettingInfo>& getSettingsList() {
                             StrId::STR_CAT_DISPLAY),
         // --- Reader ---
         SettingInfo::Enum(StrId::STR_FONT_FAMILY, &CrossPointSettings::fontFamily,
-                           {StrId::STR_BOOKERLY, StrId::STR_NOTO_SANS}, "fontFamily", StrId::STR_CAT_READER),
+                          {StrId::STR_BOOKERLY, StrId::STR_NOTO_SANS}, "fontFamily", StrId::STR_CAT_READER),
         SettingInfo::Enum(
             StrId::STR_FONT_SIZE, &CrossPointSettings::fontSize,
             {StrId::STR_X_SMALL, StrId::STR_SMALL, StrId::STR_MEDIUM, StrId::STR_LARGE, StrId::STR_X_LARGE}, "fontSize",
@@ -247,8 +247,8 @@ const std::vector<SettingInfo>& getSettingsList() {
                           {StrId::STR_HIDE, StrId::STR_DIR_RIGHT, StrId::STR_DIR_LEFT}, "statusBarClock",
                           StrId::STR_CUSTOMISE_STATUS_BAR),
         SettingInfo::Enum(StrId::STR_CLOCK_FORMAT, &CrossPointSettings::clockFormat,
-                            {StrId::STR_CLOCK_FORMAT_24H, StrId::STR_CLOCK_FORMAT_12H}, "clockFormat",
-                            StrId::STR_CUSTOMISE_STATUS_BAR),
+                          {StrId::STR_CLOCK_FORMAT_24H, StrId::STR_CLOCK_FORMAT_12H}, "clockFormat",
+                          StrId::STR_CUSTOMISE_STATUS_BAR),
         // Persistence flag for NTP debounce. Resetting from the web UI forces a re-sync
         // on next WiFi connect, which is useful when crossing time zones.
         SettingInfo::Toggle(StrId::STR_CLOCK_SYNCED, &CrossPointSettings::clockHasBeenSynced, "clockHasBeenSynced",

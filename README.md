@@ -47,12 +47,12 @@ The philosophy of this fork is simple: keep the firmware fast, stable, and focus
 |---|---|
 | Project | `CPR-vCodex` |
 | Device | `Xteink X4`; `Xteink X3` compatibility reported by users, not personally tested |
-| Current release (CPR-vCodex) build | [`1.3.0.36-cpr-vcodex`](https://github.com/franssjz/cpr-vcodex/releases/tag/1.3.0.36-cpr-vcodex) |
+| Current release (CPR-vCodex) build | [`1.3.0.37-cpr-vcodex`](https://github.com/franssjz/cpr-vcodex/releases/tag/1.3.0.37-cpr-vcodex) |
 | Latest SD font package | [`sd-fonts-m1-b4`](https://github.com/franssjz/cpr-vcodex/releases/tag/sd-fonts-m1-b4) |
 | Changelog | [CHANGELOG.md](./CHANGELOG.md) |
 | Current release sync | Stability release on the same selected CrossPoint Reader baseline through [`fd5b8078`](https://github.com/crosspoint-reader/crosspoint-reader/commit/fd5b8078) and `open-x4-sdk` [`198ad26`](https://github.com/crosspoint-reader/community-sdk/commit/198ad267219c25c8ab84418b806c66f1fb5216a3); larger upstream UI/config rewrites remain intentionally deferred. |
-| Current release fixes | Adds unified EPUB Highlights while retaining existing page marks, and hardens compressed-font rendering under low memory. |
-| Latest release notes | - `Highlights` now combines selected EPUB phrases and saved pages in one reader workflow and global app; existing `bookmarks.bin` files remain compatible and become page-mark entries.<br>- Text selection and persistent highlighting are adapted from [Julia Nguyen (`uxjulia`)](https://github.com/uxjulia)'s [CrossInk](https://github.com/uxjulia/CrossInk) work, beginning with [`b4d0ee1`](https://github.com/uxjulia/CrossInk/commit/b4d0ee190480fb3c9a175f09daab9dede3ca467a) and incorporating relevant fixes through [`ffda6de`](https://github.com/uxjulia/CrossInk/commit/ffda6de71554a53f60b861ef08ad6770426b4ac5).<br>- Compressed-font fallback buffers now use checked allocations, retry after releasing the page font cache, and skip only an affected glyph if memory remains unavailable ([#144](https://github.com/franssjz/cpr-vcodex/issues/144)). |
+| Current release fixes | Adds multiple KOReader Sync profiles and moves Lexend to the downloadable SD-card catalog to recover firmware space. |
+| Latest release notes | - Save and switch between up to eight KOReader Sync credential profiles while retaining compatibility with older firmware through `koreader.json` ([#150](https://github.com/franssjz/cpr-vcodex/pull/150)).<br>- Profile changes roll back cleanly after SD write failures, destructive deletion requires confirmation, and the UI enforces the profile limit before opening the editor.<br>- Lexend remains available in all existing reader sizes as an SD-card download while recovering about 344 KiB of firmware flash. |
 | Base firmware line | `CrossPoint Reader 1.3.0` |
 | Latest official commit reviewed | [`fd5b8078`](https://github.com/crosspoint-reader/crosspoint-reader/commit/fd5b8078) |
 | Latest official commit incorporated | Selected EPUB/rendering, cache, filesystem, image, KOReader Sync, font-upload, SDK, and navigation fixes from [`7accc607`](https://github.com/crosspoint-reader/crosspoint-reader/commit/7accc607) through [`fd5b8078`](https://github.com/crosspoint-reader/crosspoint-reader/commit/fd5b8078); larger upstream bookmark, RTL, OTA/downloader, translation-bulk, and settings rewrites remain intentionally deferred. |
@@ -594,7 +594,7 @@ Each packaged dev build now keeps the base firmware line and the local flash ide
 Practical values to look at:
 
 - base firmware line: `CrossPoint Reader 1.3.0`
-- current release build style: `1.3.0.36-cpr-vcodex`
+- current release build style: `1.3.0.37-cpr-vcodex`
 - packaged artifact style: `artifacts/<version>-cpr-vcodex.bin`
 
 The incremental `.bNNNN` suffix exists specifically to help distinguish newer flashes from older ones on real hardware.
@@ -664,12 +664,13 @@ Release publishing:
 - before tagging, run:
 
 ```powershell
-python scripts/pre_release_check.py --tag 1.3.0.36-cpr-vcodex
+python scripts/pre_release_check.py --tag 1.3.0.37-cpr-vcodex
 ```
 
-- push a stable tag named like `1.3.0.36-cpr-vcodex`
+- push a stable tag named like `1.3.0.37-cpr-vcodex`
 - the release workflow builds `gh_release`, validates that the packaged artifact
-  name matches the tag, and attaches only the flashable `<tag>.bin` to the GitHub Release
+  name matches the tag, and attaches the flashable `<tag>.bin`, build metadata,
+  and firmware-budget reports to the GitHub Release
 - tagged CI release builds derive the firmware release number from the tag, not
   from a local counter file
 - the auto-flash sync workflow then mirrors that published release asset into

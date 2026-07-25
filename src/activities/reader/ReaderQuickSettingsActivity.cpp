@@ -54,8 +54,7 @@ const std::vector<ReaderQuickSettingsActivity::QuickSetting>& ReaderQuickSetting
       {StrId::STR_PARA_ALIGNMENT,
        QuickSettingType::Enum,
        &CrossPointSettings::paragraphAlignment,
-       {StrId::STR_JUSTIFY, StrId::STR_ALIGN_LEFT, StrId::STR_CENTER, StrId::STR_ALIGN_RIGHT,
-        StrId::STR_BOOK_S_STYLE}},
+       {StrId::STR_JUSTIFY, StrId::STR_ALIGN_LEFT, StrId::STR_CENTER, StrId::STR_ALIGN_RIGHT, StrId::STR_BOOK_S_STYLE}},
       {StrId::STR_EMBEDDED_STYLE, QuickSettingType::Toggle, &CrossPointSettings::embeddedStyle},
       {StrId::STR_HYPHENATION, QuickSettingType::Toggle, &CrossPointSettings::hyphenationEnabled},
       {StrId::STR_BIONIC_READING,
@@ -86,9 +85,7 @@ const std::vector<ReaderQuickSettingsActivity::QuickSetting>& ReaderQuickSetting
   return quickSettings;
 }
 
-std::string ReaderQuickSettingsActivity::getSettingName(const int index) {
-  return I18N.get(settings()[index].nameId);
-}
+std::string ReaderQuickSettingsActivity::getSettingName(const int index) { return I18N.get(settings()[index].nameId); }
 
 std::string ReaderQuickSettingsActivity::getSettingValue(const int index) {
   const auto& setting = settings()[index];

@@ -1,7 +1,6 @@
 #include "CrossPointSettings.h"
 
 #include <HalClock.h>
-
 #include <HalStorage.h>
 #include <JsonSettingsIO.h>
 #include <Logging.h>

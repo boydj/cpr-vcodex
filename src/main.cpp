@@ -28,7 +28,6 @@
 #include "OpdsServerStore.h"
 #include "ReadingStatsStore.h"
 #include "RecentBooksStore.h"
-#include "version.h"
 #include "SdCardFontGlobals.h"
 #include "SilentRestart.h"
 #include "UiFontSelection.h"
@@ -41,6 +40,7 @@
 #include "util/CprVcodexLogs.h"
 #include "util/ScreenshotUtil.h"
 #include "util/TimeUtils.h"
+#include "version.h"
 
 MappedInputManager mappedInputManager(gpio);
 GfxRenderer renderer(display);

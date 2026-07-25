@@ -484,10 +484,9 @@ void SettingsActivity::rebuildAppSettingsList() {
       continue;
     }
     if (rtcClockActive && setting.nameId == StrId::STR_DISPLAY_DAY && setting.type == SettingType::TOGGLE) {
-      appSettingOverrides.push_back(SettingInfo::Enum(
-          StrId::STR_DISPLAY_DAY_TIME, &CrossPointSettings::displayDay,
-          {StrId::STR_STATE_OFF, StrId::STR_DISPLAY_DATE_ONLY, StrId::STR_DISPLAY_TIME_ONLY,
-           StrId::STR_DISPLAY_DAY_AND_TIME}));
+      appSettingOverrides.push_back(SettingInfo::Enum(StrId::STR_DISPLAY_DAY_TIME, &CrossPointSettings::displayDay,
+                                                      {StrId::STR_STATE_OFF, StrId::STR_DISPLAY_DATE_ONLY,
+                                                       StrId::STR_DISPLAY_TIME_ONLY, StrId::STR_DISPLAY_DAY_AND_TIME}));
       appSettings.push_back(&appSettingOverrides.back());
       continue;
     }
