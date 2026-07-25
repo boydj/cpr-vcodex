@@ -81,6 +81,9 @@ class EpubReaderActivity final : public Activity {
   static constexpr int MAX_FOOTNOTE_DEPTH = 3;
   SavedPosition savedPositions[MAX_FOOTNOTE_DEPTH] = {};
   int footnoteDepth = 0;
+  int lastSavedSpineIndex = -1;
+  int lastSavedPage = -1;
+  int lastSavedPageCount = -1;
 
   void renderContents(std::shared_ptr<Page> page, int orientedMarginTop, int orientedMarginRight,
                       int orientedMarginBottom, int orientedMarginLeft);
@@ -88,7 +91,7 @@ class EpubReaderActivity final : public Activity {
   void renderStatusBar() const;
   void renderSectionLoadFailure();
   void silentIndexNextChapterIfNeeded(uint16_t viewportWidth, uint16_t viewportHeight);
-  void saveProgress(int spineIndex, int currentPage, int pageCount);
+  bool saveProgress(int spineIndex, int currentPage, int pageCount);
   // Jump to a percentage of the book (0-100), mapping it to spine and page.
   void jumpToPercent(int percent);
   void onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction action);

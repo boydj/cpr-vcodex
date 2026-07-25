@@ -1450,7 +1450,12 @@ void EpubReaderActivity::render(RenderLock&& lock) {
     LOG_DBG("ERS", "Rendered page in %dms", millis() - start);
   }
   silentIndexNextChapterIfNeeded(viewportWidth, viewportHeight);
-  saveProgress(currentSpineIndex, section->currentPage, section->pageCount);
+  // Menus, screenshots and overlays can request a render without moving the
+  // reader. Avoid several FAT operations for the same six-byte position file.
+  if (currentSpineIndex != lastSavedSpineIndex || section->currentPage != lastSavedPage ||
+      section->pageCount != lastSavedPageCount) {
+    saveProgress(currentSpineIndex, section->currentPage, section->pageCount);
+  }
 
   if (pendingScreenshot) {
     pendingScreenshot = false;
@@ -1500,7 +1505,7 @@ void EpubReaderActivity::silentIndexNextChapterIfNeeded(const uint16_t viewportW
   }
 }
 
-void EpubReaderActivity::saveProgress(int spineIndex, int currentPage, int pageCount) {
+bool EpubReaderActivity::saveProgress(int spineIndex, int currentPage, int pageCount) {
   int progressPercent = 0;
   if (epub->getBookSize() > 0 && pageCount > 0) {
     const float chapterProgress = static_cast<float>(currentPage + 1) / static_cast<float>(pageCount);
@@ -1527,8 +1532,13 @@ void EpubReaderActivity::saveProgress(int spineIndex, int currentPage, int pageC
   }
   if (writeReaderProgressFile(progressPath, spineIndex, currentPage, pageCount)) {
     LOG_DBG("ERS", "Progress saved: Chapter %d, Page %d", spineIndex, currentPage);
+    lastSavedSpineIndex = spineIndex;
+    lastSavedPage = currentPage;
+    lastSavedPageCount = pageCount;
+    return true;
   } else {
     LOG_ERR("ERS", "Could not save progress!");
+    return false;
   }
 }
 
