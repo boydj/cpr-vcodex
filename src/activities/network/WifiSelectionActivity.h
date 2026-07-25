@@ -18,6 +18,7 @@ struct WifiNetworkInfo {
   int32_t channel = 0;
   uint8_t bssid[6] = {};
   bool hasBssid = false;
+  bool isHiddenPlaceholder = false;
   std::string ipAddress;  // Populated after connection for display
 };
 
@@ -26,6 +27,7 @@ enum class WifiSelectionState {
   AUTO_CONNECTING,    // Trying to connect to the last known network
   SCANNING,           // Scanning for networks
   NETWORK_LIST,       // Displaying available networks
+  HIDDEN_SSID_ENTRY,  // Entering the SSID of a hidden network
   PASSWORD_ENTRY,     // Entering password for selected network
   CONNECTING,         // Attempting to connect
   CONNECTED,          // Successfully connected
@@ -51,6 +53,7 @@ class WifiSelectionActivity final : public Activity {
   WifiSelectionState state = WifiSelectionState::SCANNING;
   size_t selectedNetworkIndex = 0;
   std::vector<WifiNetworkInfo> networks;
+  size_t realNetworkCount = 0;
 
   // Selected network for connection
   std::string selectedSSID;
@@ -99,7 +102,10 @@ class WifiSelectionActivity final : public Activity {
 
   void startWifiScan();
   void processWifiScanResults();
+  void appendHiddenNetworkEntry();
   void selectNetwork(int index);
+  void promptHiddenSsid();
+  void promptPasswordEntry();
   void setSelectedNetwork(const WifiNetworkInfo& network);
   bool connectUsingSavedCredential(const WifiNetworkInfo& network, bool isAutoConnectAttempt);
   void attemptConnection();
