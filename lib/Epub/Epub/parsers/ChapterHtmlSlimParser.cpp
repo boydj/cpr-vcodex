@@ -1628,8 +1628,7 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
       // the block remains empty (i.e. <br> is a section separator between paragraphs).
       // If the block gets text added before the next block opens it becomes non-empty,
       // goes through makePages() normally, and the flag has no effect (inline <br> case).
-      BlockStyle brStyle =
-          self->currentTextBlock ? self->currentTextBlock->getBlockStyle() : self->blockStyleStack.back();
+      BlockStyle brStyle = self->blockStyleStack.back();
       brStyle.fromBrElement = true;
       self->startNewTextBlock(brStyle);
     } else {
@@ -2138,6 +2137,9 @@ void XMLCALL ChapterHtmlSlimParser::endElement(void* userData, const XML_Char* n
         self->currentTextBlock->setBlockStyle(style.addBottom(self->blockStyleStack.back()));
       }
       self->blockStyleStack.pop_back();
+      // Subsequent bare text must inherit the parent, not the style of the
+      // block that just closed (alignment, margins, and padding included).
+      self->startNewTextBlock(self->blockStyleStack.back());
     }
 
     // </li> closes: if the bullet never got inline text (empty <li> or <li> with only

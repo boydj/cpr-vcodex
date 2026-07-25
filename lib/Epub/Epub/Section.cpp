@@ -11,8 +11,8 @@
 #include "parsers/ChapterHtmlSlimParser.h"
 
 namespace {
-// v37: preserve continuation state when oversized CJK tokens are split.
-constexpr uint8_t SECTION_FILE_VERSION = 37;
+// v38: closed HTML blocks start a fresh parent-styled text block.
+constexpr uint8_t SECTION_FILE_VERSION = 38;
 constexpr uint32_t HEADER_SIZE = sizeof(uint8_t) + sizeof(int) + sizeof(float) + sizeof(bool) + sizeof(bool) +
                                  sizeof(uint8_t) + sizeof(uint16_t) + sizeof(uint16_t) + sizeof(uint16_t) +
                                  sizeof(bool) + sizeof(bool) + sizeof(bool) + sizeof(uint8_t) + sizeof(uint32_t) +
