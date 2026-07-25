@@ -1083,6 +1083,11 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
         if (self->shouldRecordAnchor(name, idValue)) {
           // Defer both anchor recording and TOC page breaks until startNewTextBlock,
           // after the previous block is flushed to pages via makePages().
+          // Consecutive non-block elements can supply another ID before that happens;
+          // retain the displaced anchor instead of silently overwriting it.
+          if (!self->pendingAnchorId.empty()) {
+            self->flushPendingAnchor();
+          }
           self->pendingAnchorId = idValue;
         }
       }
