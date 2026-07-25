@@ -93,7 +93,7 @@ const std::vector<SettingInfo>& getDeviceDisplaySettings() {
 const std::vector<SettingInfo>& getDeviceReaderSettings() {
   static const std::vector<SettingInfo> settings = {
       SettingInfo::Enum(StrId::STR_FONT_FAMILY, &CrossPointSettings::fontFamily,
-                        {StrId::STR_BOOKERLY, StrId::STR_NOTO_SANS, StrId::STR_LEXEND}),
+                        {StrId::STR_BOOKERLY, StrId::STR_NOTO_SANS}),
       SettingInfo::Action(StrId::STR_MANAGE_FONTS, SettingAction::DownloadFonts),
       SettingInfo::Enum(
           StrId::STR_FONT_SIZE, &CrossPointSettings::fontSize,

@@ -34,7 +34,7 @@ Some of the main additions include:
 - unified EPUB Highlights for selected text and saved pages, with a global Highlights app and backward-compatible bookmark storage
 - customizable Home and Apps shortcuts, reader quick settings, reading layouts, themes, and Lyra Carousel workflow improvements
 - enhanced sleep tools, including custom image directories, cover/custom stats screens, sleep previews, cached sleep frames, and configurable clean sleep refresh
-- downloadable and manually installable SD-card fonts, including vCodex-only families such as `ChareInk`
+- downloadable and manually installable SD-card fonts, including vCodex families such as `ChareInk` and `Lexend`
 - Screen Clean, SD firmware update, Auto Flash, reading stats editor, and other maintenance/workflow utilities
 - KOReader Sync, OPDS filename options, reader refresh controls, Bionic Reading, text darkness, dark mode, and other reader quality-of-life settings
 - carefully selected upstream CrossPoint improvements and fixes adapted without dropping vCodex-specific behavior
@@ -123,7 +123,7 @@ If you know reliable public dictionary links for more languages, please contact 
 
 ## SD card fonts
 
-`CPR-vCodex` supports extra `.cpfont` families stored on the microSD card. The built-in reader fonts still work as usual, and downloaded SD fonts appear in `Settings > Reader > Font Family` after the firmware discovers them.
+`CPR-vCodex` supports extra `.cpfont` families stored on the microSD card. The built-in reader fonts still work as usual, and downloaded SD fonts such as Lexend appear in `Settings > Reader > Font Family` after the firmware discovers them.
 
 SD-card font rendering keeps a fast per-glyph advance cache when it is complete, and falls back to direct glyph measurement when an external font cache is missing an entry. Browser File Transfer downloads also preserve the advertised response size so downloaded files do not fail with content-length mismatch errors.
 
@@ -134,14 +134,14 @@ Device download:
 3. Select a family and download it.
 4. Return to `Reader Font Family` and choose the newly installed font.
 
-Manual install from GitHub is faster when Wi-Fi on the device is slow. The CPR-vCodex package contains only
-vCodex-only additions; use the CrossPoint source/package for common families:
+Manual install from GitHub is faster when Wi-Fi on the device is slow. The CPR-vCodex package contains
+vCodex-specific additions; use the CrossPoint source/package for other common families:
 
 1. Download [`all-fonts.zip`](https://github.com/franssjz/cpr-vcodex/releases/download/sd-fonts-m1-b4/all-fonts.zip) from the latest CPR-vCodex SD font package.
 2. Extract it into the root of the microSD card. The archive creates `fonts/<Family>/*.cpfont`.
 3. Reinsert the card, restart the device, and select the font under `Settings > Reader > Font Family`.
 
-Manual single-family install also works. Download the four files for a family from [`sd-fonts-m1-b4`](https://github.com/franssjz/cpr-vcodex/releases/tag/sd-fonts-m1-b4), create `fonts/<Family>/` on the microSD card, and copy the matching `Family_12.cpfont`, `Family_14.cpfont`, `Family_16.cpfont`, and `Family_18.cpfont` files there.
+Manual single-family install also works. Download all `.cpfont` files for a family from [`sd-fonts-m1-b4`](https://github.com/franssjz/cpr-vcodex/releases/tag/sd-fonts-m1-b4), create `fonts/<Family>/` on the microSD card, and copy the matching files there.
 
 Recommended microSD layout:
 
@@ -153,6 +153,12 @@ SD:/
       ChareInk_14.cpfont
       ChareInk_16.cpfont
       ChareInk_18.cpfont
+    Lexend/
+      Lexend_10.cpfont
+      Lexend_12.cpfont
+      Lexend_14.cpfont
+      Lexend_16.cpfont
+      Lexend_18.cpfont
 ```
 
 ## Flashcards study modes
@@ -200,7 +206,7 @@ This project is **not affiliated with Xteink**.
 - `Sync Day` for coherent day-based stats on hardware without a trustworthy sleep RTC
 - `Lyra Carousel` Home theme, originally created by [zgredex](https://github.com/zgredex), adapted to this fork by [erickosanchezj](https://github.com/erickosanchezj), limited to 3 books for smoother X4 navigation, with a sliding bottom shortcut row so every configured Home action remains reachable
 - experimental X3-only `Tilt Page Turn`, hidden unless the QMI8658 IMU is detected and disabled by default
-- downloadable SD-card fonts from CrossPoint plus vCodex-only families such as `ChareInk`
+- downloadable SD-card fonts from CrossPoint plus vCodex families such as `ChareInk` and `Lexend`
 - SD-card firmware update from Settings for local `.bin` flashing without a browser
 - configurable long-press side-button behavior: `Off`, `Chapter skip`, or `Orientation change`
 - EPUB Highlights for selected text and saved pages, plus a global Highlights app
@@ -209,7 +215,7 @@ This project is **not affiliated with Xteink**.
 - configurable OPDS download filename format: `Author - Title` or `Title - Author`
 - configurable `Home` and `Apps` shortcuts
 - `Flashcards` with offline CSV decks, session summary, recents, stats and settings
-- `Text Darkness`, `Bionic Reading`, `Reader Refresh Mode`, `Lexend`, `X Small`
+- `Text Darkness`, `Bionic Reading`, `Reader Refresh Mode`, downloadable `Lexend`, `X Small`
 - `Sleep` tools with directory selection, preview, cache, sequential and shuffle behavior
 - `Dark Mode (Experimental)`
 - Vietnamese UI support and synchronized translation coverage across all shipped languages
@@ -292,7 +298,7 @@ That is enough to start using the core `vcodex` additions: coherent day-based an
 | `Text Darkness` | global `Normal / Dark / Extra Dark` text rendering control, based on the idea first seen in `crosspet` | [Settings](#settings) |
 | `Bionic Reading` | `Off / Normal / Subtle` EPUB focus-reading modes with stable text weight in BW and anti-aliased rendering | [Settings](#settings) |
 | `Reader Refresh Mode` | `Auto / Fast / Half / Full` | [Settings](#settings) |
-| `Lexend` | additional reader font family | [Settings](#settings) |
+| `Lexend` | downloadable SD-card reader font family | [Settings](#settings) |
 | `Dark Mode (Experimental)` | optional white-on-black UI and reader presentation | [Settings](#settings) |
 | `ReadMe` | on-device quick guide for the main fork features | [ReadMe](#readme) |
 | `If found, please return me` | lost-device contact screen from `/if_found.txt` on the SD card | [If found, please return me](#if-found-please-return-me) |
@@ -541,9 +547,9 @@ Useful reader/display additions include:
 Font notes:
 
 - `Bookerly` and `Noto Sans` have full regular/bold/italic coverage in the compiled sizes
-- `Lexend` is available as an extra reader family
+- `Lexend` is available as a downloadable SD-card reader family
 - `Lexend` italic and bold-italic still use safe fallbacks rather than separate real italic assets
-- `Manage Fonts` downloads common SD-card font families from CrossPoint and vCodex-only additions from CPR-vCodex release assets, currently `ChareInk`
+- `Manage Fonts` downloads common SD-card font families from CrossPoint and CPR-vCodex additions, currently `ChareInk` and `Lexend`
 
 ## What requires Sync Day
 

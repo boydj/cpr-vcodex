@@ -26,11 +26,13 @@
 #include "util/TimeZoneRegistry.h"
 
 namespace {
-constexpr uint8_t FONT_FAMILY_SCHEMA_VERSION = 2;
+constexpr uint8_t FONT_FAMILY_SCHEMA_VERSION = 3;
 constexpr uint8_t FONT_SIZE_SCHEMA_VERSION = 2;
 constexpr uint8_t UI_THEME_SCHEMA_VERSION = 3;
 constexpr uint8_t TEXT_DARKNESS_SCHEMA_VERSION = 2;
 constexpr uint8_t FLASHCARD_STUDY_MODE_SCHEMA_VERSION = 2;
+constexpr uint8_t LEGACY_LEXEND_FONT_FAMILY = 2;
+constexpr char LEXEND_SD_FAMILY_NAME[] = "Lexend";
 
 class HalFileStream : public Stream {
  public:
@@ -339,14 +341,24 @@ bool loadSettingsDirect(CrossPointSettings& s, const JsonDocument& doc, bool* ne
   loadToggle("darkMode", s.darkMode);
   loadToggle("antiGhostingExperimental", s.antiGhostingExperimental);
 
+  loadString("sdFontFamilyName", s.sdFontFamilyName, sizeof(s.sdFontFamilyName));
   const uint8_t rawFontFamily = doc["fontFamily"] | s.fontFamily;
-  if (rawFontFamily >= static_cast<uint8_t>(CrossPointSettings::FONT_FAMILY_COUNT)) {
+  const uint8_t fontFamilySchemaVersion = doc["fontFamilySchemaVersion"] | static_cast<uint8_t>(0);
+  if (fontFamilySchemaVersion < FONT_FAMILY_SCHEMA_VERSION && rawFontFamily == LEGACY_LEXEND_FONT_FAMILY &&
+      s.sdFontFamilyName[0] == '\0') {
+    s.fontFamily = CrossPointSettings::BOOKERLY;
+    strncpy(s.sdFontFamilyName, LEXEND_SD_FAMILY_NAME, sizeof(s.sdFontFamilyName) - 1);
+    s.sdFontFamilyName[sizeof(s.sdFontFamilyName) - 1] = '\0';
+    if (needsResave) *needsResave = true;
+  } else if (rawFontFamily >= static_cast<uint8_t>(CrossPointSettings::FONT_FAMILY_COUNT)) {
     s.fontFamily = CrossPointSettings::BOOKERLY;
     if (needsResave) *needsResave = true;
   } else {
     s.fontFamily = rawFontFamily;
   }
-  loadString("sdFontFamilyName", s.sdFontFamilyName, sizeof(s.sdFontFamilyName));
+  if (fontFamilySchemaVersion < FONT_FAMILY_SCHEMA_VERSION && needsResave) {
+    *needsResave = true;
+  }
 
   loadEnum("fontSize", s.fontSize, CrossPointSettings::FONT_SIZE_COUNT);
   const uint8_t fontSizeSchemaVersion = doc["fontSizeSchemaVersion"] | static_cast<uint8_t>(0);
