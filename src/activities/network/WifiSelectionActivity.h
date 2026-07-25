@@ -12,9 +12,9 @@
 // Structure to hold WiFi network information
 struct WifiNetworkInfo {
   std::string ssid;
-  int32_t rssi;
-  bool isEncrypted;
-  bool hasSavedPassword;  // Whether we have saved credentials for this network
+  int32_t rssi = 0;
+  bool isEncrypted = false;
+  bool hasSavedPassword = false;  // Whether we have saved credentials for this network
   int32_t channel = 0;
   uint8_t bssid[6] = {};
   bool hasBssid = false;
