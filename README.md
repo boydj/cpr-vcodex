@@ -50,12 +50,12 @@ The philosophy of this fork is simple: keep the firmware fast, stable, and focus
 |---|---|
 | Project | `CPR-vCodex` |
 | Device | `Xteink X4`; `Xteink X3` compatibility reported by users, not personally tested |
-| Current release (CPR-vCodex) build | [`1.5.0.0-cpr-vcodex`](https://github.com/franssjz/cpr-vcodex/releases/tag/1.5.0.0-cpr-vcodex) |
+| Current release (CPR-vCodex) build | [`1.5.0.1-cpr-vcodex`](https://github.com/franssjz/cpr-vcodex/releases/tag/1.5.0.1-cpr-vcodex) |
 | Latest SD font package | [`sd-fonts-m1-b4`](https://github.com/franssjz/cpr-vcodex/releases/tag/sd-fonts-m1-b4) |
 | Changelog | [CHANGELOG.md](./CHANGELOG.md) |
 | Current release sync | Selected CrossPoint Reader 1.5 EPUB indexing and memory work through [`f0a50557`](https://github.com/crosspoint-reader/crosspoint-reader/commit/f0a50557), manually adapted to retain the vCodex band renderer, KOReader profiles, reading statistics, highlights, themes, ruby, and SD-card fonts; `open-x4-sdk` remains at [`198ad26`](https://github.com/crosspoint-reader/community-sdk/commit/198ad267219c25c8ab84418b806c66f1fb5216a3). |
-| Current release focus | Opens large EPUB chapters progressively, resumes partial indexes, and lowers first-open/layout memory pressure without removing CPR-vCodex reader features. |
-| Latest release notes | - Added bounded, on-demand EPUB pagination so the landing page can appear before the whole chapter is indexed.<br>- Added resumable partial section caches and deferred background pagination.<br>- Reduced layout allocations with flat text-line storage, adaptive token reserves, streaming image-dimension probes, and temporary framebuffer-backed inflate scratch.<br>- Preserved ruby, Focus Reading, highlights, statistics, downloadable SD fonts, banded grayscale rendering, and KOReader profile/position extensions. |
+| Current release focus | Makes Reading Stats import and persistence safer under low-memory and SD-card failure conditions, while correcting several session, heatmap, profile, and editor inconsistencies. |
+| Latest release notes | - Parses Reading Stats imports directly from the SD card and validates format-v6 structure and totals before accepting them.<br>- Refuses overflowed or partially written JSON and keeps a rollback copy of the previous statistics.<br>- Preserves session book identity in the browser editor and fixes session ordering, longest-session achievements, large best-day percentages, short heatmap activity, and filtered day totals.<br>- Verified against the 52 KB, 75-book export supplied in [#155](https://github.com/franssjz/cpr-vcodex/issues/155). |
 | Base firmware line | `CrossPoint Reader 1.5.0` |
 | Latest official commit reviewed | [`f0a50557`](https://github.com/crosspoint-reader/crosspoint-reader/commit/f0a50557) |
 | Latest official commit incorporated | Selected EPUB/rendering, cache, Wi-Fi, web, media, completion, KOReader Sync, ruby, and progressive-indexing changes from [`67936cb3`](https://github.com/crosspoint-reader/crosspoint-reader/commit/67936cb3) through [`f0a50557`](https://github.com/crosspoint-reader/crosspoint-reader/commit/f0a50557); larger upstream settings, UI, persistence, touch, RTL, OTA, and hardware rewrites remain intentionally deferred. |
@@ -597,7 +597,7 @@ Each packaged dev build now keeps the base firmware line and the local flash ide
 Practical values to look at:
 
 - base firmware line: `CrossPoint Reader 1.5.0`
-- current release build style: `1.5.0.0-cpr-vcodex`
+- current release build style: `1.5.0.1-cpr-vcodex`
 - packaged artifact style: `artifacts/<version>-cpr-vcodex.bin`
 
 The incremental `.bNNNN` suffix exists specifically to help distinguish newer flashes from older ones on real hardware.
@@ -667,10 +667,10 @@ Release publishing:
 - before tagging, run:
 
 ```powershell
-python scripts/pre_release_check.py --tag 1.5.0.0-cpr-vcodex
+python scripts/pre_release_check.py --tag 1.5.0.1-cpr-vcodex
 ```
 
-- push a stable tag named like `1.5.0.0-cpr-vcodex`
+- push a stable tag named like `1.5.0.1-cpr-vcodex`
 - the release workflow builds `gh_release`, validates that the packaged artifact
   name matches the tag, and attaches the flashable `<tag>.bin`, build metadata,
   and firmware-budget reports to the GitHub Release

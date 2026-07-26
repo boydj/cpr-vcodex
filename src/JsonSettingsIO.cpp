@@ -75,6 +75,12 @@ bool saveJsonDocumentToFile(const char* moduleName, const char* path, const Json
     return false;
   }
 
+  if (doc.overflowed()) {
+    LOG_ERR(moduleName, "JSON document overflowed before write: %s", targetPath.c_str());
+    CPR_VCODEX_LOG_EVENT(moduleName, std::string("Refused to write overflowed JSON document: ") + targetPath);
+    return false;
+  }
+
   if (Storage.exists(tempPath.c_str())) {
     Storage.remove(tempPath.c_str());
   }
@@ -86,12 +92,16 @@ bool saveJsonDocumentToFile(const char* moduleName, const char* path, const Json
     return false;
   }
 
+  const size_t expected = measureJson(doc);
   const size_t written = serializeJson(doc, file);
   file.flush();
   file.close();
-  if (written == 0) {
+  if (written == 0 || written != expected) {
     Storage.remove(tempPath.c_str());
-    CPR_VCODEX_LOG_EVENT(moduleName, std::string("serializeJson wrote 0 bytes for ") + targetPath);
+    LOG_ERR(moduleName, "Incomplete JSON write for %s: %u/%u bytes", targetPath.c_str(),
+            static_cast<unsigned>(written), static_cast<unsigned>(expected));
+    CPR_VCODEX_LOG_EVENT(moduleName, std::string("Incomplete JSON write for ") + targetPath + ": " +
+                                         std::to_string(written) + "/" + std::to_string(expected) + " bytes");
     return false;
   }
 
@@ -125,11 +135,12 @@ bool loadJsonDocumentFromFile(const char* moduleName, const char* path, JsonDocu
   HalFileStream stream(file);
   auto error = deserializeJson(doc, stream);
   file.close();
-  if (error) {
-    LOG_ERR(moduleName, "JSON parse error: %s", error.c_str());
+  if (error || doc.overflowed()) {
+    const char* message = error ? error.c_str() : "document overflow";
+    LOG_ERR(moduleName, "JSON parse error: %s", message);
 #ifndef CPR_DISABLE_EVENT_LOGS
     const std::string reportBody =
-        std::string("File: ") + path + "\nModule: " + moduleName + "\nError: " + error.c_str() + "\n";
+        std::string("File: ") + path + "\nModule: " + moduleName + "\nError: " + message + "\n";
     std::string outPath;
     if (CPR_VCODEX_WRITE_REPORT("json_error", reportBody, &outPath)) {
       CPR_VCODEX_LOG_EVENT(moduleName, std::string("Saved JSON parse error report to ") + outPath);
@@ -1487,13 +1498,53 @@ bool JsonSettingsIO::saveReadingStats(const ReadingStatsStore& store, const char
   return saveJsonDocumentToFile("RST", path, doc);
 }
 
-bool JsonSettingsIO::loadReadingStats(ReadingStatsStore& store, const char* json) {
-  JsonDocument doc;
-  auto error = deserializeJson(doc, json);
-  if (error) {
-    LOG_ERR("RST", "JSON parse error: %s", error.c_str());
-    CPR_VCODEX_LOG_EVENT("RST", std::string("Reading stats JSON parse error: ") + error.c_str());
+bool JsonSettingsIO::loadReadingStatsDocument(ReadingStatsStore& store, const JsonDocument& doc) {
+  if (!doc.is<JsonObject>()) {
+    CPR_VCODEX_LOG_EVENT("RST", "Reading stats root is not a JSON object");
     return false;
+  }
+
+  const JsonVariantConst formatValue = doc["formatVersion"];
+  if (!formatValue.isNull() && !formatValue.is<uint32_t>()) {
+    CPR_VCODEX_LOG_EVENT("RST", "Reading stats formatVersion is not an unsigned integer");
+    return false;
+  }
+  const uint32_t formatVersion = formatValue | static_cast<uint32_t>(1);
+  if (formatVersion == 0 || formatVersion > 6) {
+    CPR_VCODEX_LOG_EVENT("RST", std::string("Unsupported reading stats formatVersion: ") +
+                                   std::to_string(formatVersion));
+    return false;
+  }
+
+  static constexpr const char* ARRAY_KEYS[] = {"readingDays", "legacyReadingDays", "sessionLog", "books"};
+  for (const char* key : ARRAY_KEYS) {
+    const JsonVariantConst value = doc[key];
+    if ((!value.isNull() || formatVersion >= 6) && !value.is<JsonArray>()) {
+      CPR_VCODEX_LOG_EVENT("RST", std::string("Reading stats field is not an array: ") + key);
+      return false;
+    }
+  }
+
+  for (JsonVariantConst value : doc["books"].as<JsonArrayConst>()) {
+    if (!value.is<JsonObject>()) {
+      CPR_VCODEX_LOG_EVENT("RST", "Reading stats books contains a non-object entry");
+      return false;
+    }
+    const JsonObjectConst obj = value.as<JsonObjectConst>();
+    if (!obj["knownPaths"].isNull() && !obj["knownPaths"].is<JsonArray>()) {
+      CPR_VCODEX_LOG_EVENT("RST", "Reading stats knownPaths is not an array");
+      return false;
+    }
+    if (formatVersion >= 2 && !obj["readingDays"].isNull() && !obj["readingDays"].is<JsonArray>()) {
+      CPR_VCODEX_LOG_EVENT("RST", "Reading stats book readingDays is not an array");
+      return false;
+    }
+  }
+  for (JsonVariantConst value : doc["sessionLog"].as<JsonArrayConst>()) {
+    if (!value.is<JsonObject>()) {
+      CPR_VCODEX_LOG_EVENT("RST", "Reading stats sessionLog contains a non-object entry");
+      return false;
+    }
   }
 
   store.books.clear();
@@ -1502,13 +1553,11 @@ bool JsonSettingsIO::loadReadingStats(ReadingStatsStore& store, const char* json
   store.sessionLog.clear();
   store.dirty = false;
 
-  const uint32_t formatVersion = doc["formatVersion"] | static_cast<uint32_t>(1);
-
-  auto appendReadingDays = [](std::vector<ReadingDayStats>& destination, JsonArray source) {
-    for (JsonVariant value : source) {
+  auto appendReadingDays = [](std::vector<ReadingDayStats>& destination, JsonArrayConst source) {
+    for (JsonVariantConst value : source) {
       ReadingDayStats day;
       if (value.is<JsonObject>()) {
-        JsonObject obj = value.as<JsonObject>();
+        JsonObjectConst obj = value.as<JsonObjectConst>();
         day.dayOrdinal = obj["dayOrdinal"] | static_cast<uint32_t>(0);
         day.readingMs = obj["readingMs"] | static_cast<uint64_t>(0);
       } else {
@@ -1521,9 +1570,10 @@ bool JsonSettingsIO::loadReadingStats(ReadingStatsStore& store, const char* json
     }
   };
 
-  appendReadingDays(store.readingDays, doc["readingDays"].as<JsonArray>());
+  appendReadingDays(store.readingDays, doc["readingDays"].as<JsonArrayConst>());
+  std::vector<ReadingDayStats> declaredReadingDays = store.readingDays;
   if (formatVersion >= 2) {
-    appendReadingDays(store.legacyReadingDays, doc["legacyReadingDays"].as<JsonArray>());
+    appendReadingDays(store.legacyReadingDays, doc["legacyReadingDays"].as<JsonArrayConst>());
     if (formatVersion < 6 && store.legacyReadingDays.empty()) {
       store.legacyReadingDays = store.readingDays;
     }
@@ -1532,7 +1582,7 @@ bool JsonSettingsIO::loadReadingStats(ReadingStatsStore& store, const char* json
   }
 
   if (formatVersion >= 4) {
-    for (JsonObject sessionObj : doc["sessionLog"].as<JsonArray>()) {
+    for (JsonObjectConst sessionObj : doc["sessionLog"].as<JsonArrayConst>()) {
       ReadingSessionLogEntry session;
       session.dayOrdinal = sessionObj["dayOrdinal"] | static_cast<uint32_t>(0);
       session.sessionMs = sessionObj["sessionMs"] | static_cast<uint32_t>(0);
@@ -1546,15 +1596,15 @@ bool JsonSettingsIO::loadReadingStats(ReadingStatsStore& store, const char* json
     store.dirty = true;
   }
 
-  JsonArray books = doc["books"].as<JsonArray>();
-  for (JsonObject obj : books) {
+  JsonArrayConst books = doc["books"].as<JsonArrayConst>();
+  for (JsonObjectConst obj : books) {
     ReadingBookStats book;
     book.bookId = obj["bookId"] | std::string("");
     book.path = obj["path"] | std::string("");
     if (book.path.empty()) {
       continue;
     }
-    for (JsonVariant value : obj["knownPaths"].as<JsonArray>()) {
+    for (JsonVariantConst value : obj["knownPaths"].as<JsonArrayConst>()) {
       const std::string knownPath = value | std::string("");
       if (!knownPath.empty()) {
         book.knownPaths.push_back(knownPath);
@@ -1574,7 +1624,7 @@ bool JsonSettingsIO::loadReadingStats(ReadingStatsStore& store, const char* json
     book.chapterProgressPercent = obj["chapterProgressPercent"] | static_cast<uint8_t>(0);
     book.completed = obj["completed"] | false;
     if (formatVersion >= 2) {
-      appendReadingDays(book.readingDays, obj["readingDays"].as<JsonArray>());
+      appendReadingDays(book.readingDays, obj["readingDays"].as<JsonArrayConst>());
     }
     if (formatVersion < 3 || book.bookId.empty()) {
       store.dirty = true;
@@ -1587,20 +1637,71 @@ bool JsonSettingsIO::loadReadingStats(ReadingStatsStore& store, const char* json
     store.dirty = true;
   }
   store.rebuildAggregatedReadingDays();
+
+  if (formatVersion >= 6) {
+    auto normalizeDays = [](std::vector<ReadingDayStats>& days) {
+      std::sort(days.begin(), days.end(), [](const ReadingDayStats& left, const ReadingDayStats& right) {
+        return left.dayOrdinal < right.dayOrdinal;
+      });
+      size_t writeIndex = 0;
+      for (const auto& day : days) {
+        if (day.dayOrdinal == 0 || day.readingMs == 0) {
+          continue;
+        }
+        if (writeIndex > 0 && days[writeIndex - 1].dayOrdinal == day.dayOrdinal) {
+          days[writeIndex - 1].readingMs += day.readingMs;
+        } else {
+          days[writeIndex++] = day;
+        }
+      }
+      days.resize(writeIndex);
+    };
+    normalizeDays(declaredReadingDays);
+    const bool aggregatesMatch = declaredReadingDays.size() == store.readingDays.size() &&
+                                 std::equal(declaredReadingDays.begin(), declaredReadingDays.end(),
+                                            store.readingDays.begin(), [](const ReadingDayStats& left,
+                                                                         const ReadingDayStats& right) {
+                                              return left.dayOrdinal == right.dayOrdinal &&
+                                                     left.readingMs == right.readingMs;
+                                            });
+    if (!aggregatesMatch) {
+      store.books.clear();
+      store.legacyReadingDays.clear();
+      store.readingDays.clear();
+      store.sessionLog.clear();
+      store.dirty = false;
+      CPR_VCODEX_LOG_EVENT("RST", "Reading stats aggregate totals do not match per-book data");
+      return false;
+    }
+  }
+
+  std::stable_sort(store.sessionLog.begin(), store.sessionLog.end(),
+                   [](const ReadingSessionLogEntry& left, const ReadingSessionLogEntry& right) {
+                     return left.dayOrdinal < right.dayOrdinal;
+                   });
   LOG_DBG("RST", "Reading stats loaded from file (%d books)", static_cast<int>(store.books.size()));
   return true;
+}
+
+bool JsonSettingsIO::loadReadingStats(ReadingStatsStore& store, const char* json) {
+  JsonDocument doc;
+  auto error = deserializeJson(doc, json);
+  if (error || doc.overflowed()) {
+    const char* message = error ? error.c_str() : "document overflow";
+    LOG_ERR("RST", "JSON parse error: %s", message);
+    CPR_VCODEX_LOG_EVENT("RST", std::string("Reading stats JSON parse error: ") + message);
+    return false;
+  }
+  return loadReadingStatsDocument(store, doc);
 }
 
 bool JsonSettingsIO::loadReadingStatsFromFile(ReadingStatsStore& store, const char* path) {
   if (!Storage.exists(path)) {
     return false;
   }
-  const String json = Storage.readFile(path);
-  if (json.isEmpty()) {
-    CPR_VCODEX_LOG_EVENT("RST", std::string("Reading stats file empty or unreadable: ") + path);
-    return false;
-  }
-  const bool loaded = loadReadingStats(store, json.c_str());
+  JsonDocument doc;
+  const bool parsed = loadJsonDocumentFromFile("RST", path, doc);
+  const bool loaded = parsed && !doc.overflowed() && loadReadingStatsDocument(store, doc);
   if (!loaded) {
     CPR_VCODEX_LOG_EVENT("RST", std::string("Failed to load reading stats from ") + path);
   }
