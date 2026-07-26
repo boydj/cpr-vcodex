@@ -82,7 +82,17 @@ void TextBlock::recordFontUsage(FontCacheManager& fontCacheManager, const int fo
     if (bionicReadingMode == BIONIC_READING_NORMAL && (style & EpdFontFamily::BOLD) == 0) {
       fontCacheManager.recordStyle(fontId, static_cast<EpdFontFamily::Style>(style | EpdFontFamily::BOLD));
     }
+    if (i < rubyTexts.size() && !rubyTexts[i].empty()) {
+      fontCacheManager.recordText(rubyTexts[i].c_str(), fontId, EpdFontFamily::SUP);
+    }
   }
+}
+
+bool TextBlock::hasRuby() const {
+  for (const auto& ruby : rubyTexts) {
+    if (!ruby.empty()) return true;
+  }
+  return false;
 }
 
 void TextBlock::render(const GfxRenderer& renderer, const int fontId, const int x, const int y,
@@ -99,17 +109,45 @@ void TextBlock::render(const GfxRenderer& renderer, const int fontId, const int 
 
   const bool scanning = renderer.isFontCacheScanning();
   const int ascender = renderer.getFontAscenderSize(fontId);
+  const int rubyShift = getRubyShift(ascender);
+  size_t rubyGroupEnd = 0;
+  int rubyGroupBaseShift = 0;
   for (size_t i = 0; i < words.size(); i++) {
-    const int wordX = wordXpos[i] + x;
+    int rubyX = 0;
+    if (i >= rubyGroupEnd) {
+      rubyGroupEnd = i;
+      rubyGroupBaseShift = 0;
+      if (i < rubyTexts.size() && !rubyTexts[i].empty() &&
+          (wordStyles[i] & EpdFontFamily::RUBY_CONTINUE) == 0) {
+        size_t count = 1;
+        int baseWidth = renderer.getTextAdvanceX(fontId, words[i].c_str(), wordStyles[i]);
+        while (i + count < words.size() && (wordStyles[i + count] & EpdFontFamily::RUBY_CONTINUE) != 0) {
+          baseWidth += renderer.getTextAdvanceX(fontId, words[i + count].c_str(), wordStyles[i + count]);
+          ++count;
+        }
+        const int rubyWidth = renderer.getTextAdvanceX(fontId, rubyTexts[i].c_str(), EpdFontFamily::SUP);
+        rubyGroupBaseShift = std::max(0, rubyWidth - baseWidth) / 2;
+        rubyGroupEnd = i + count;
+        rubyX = wordXpos[i] + x + (rubyWidth < baseWidth ? (baseWidth - rubyWidth) / 2 : 0);
+        rubyX = std::max(0, std::min(rubyX, renderer.getScreenWidth() - rubyWidth));
+      }
+    }
+
+    const int wordX = wordXpos[i] + x + rubyGroupBaseShift;
     const EpdFontFamily::Style currentStyle = wordStyles[i];
     const std::string& w = words[i];
 
     // SUP/SUB shifts are relative to the full-size ascender; glyphs are scaled in drawText.
-    int wordY = y;
+    int wordY = y + rubyShift;
     if ((currentStyle & EpdFontFamily::SUP) != 0) {
       wordY -= ascender * 2 / 5;
     } else if ((currentStyle & EpdFontFamily::SUB) != 0) {
       wordY += ascender / 4;
+    }
+
+    if (i < rubyTexts.size() && !rubyTexts[i].empty() &&
+        (wordStyles[i] & EpdFontFamily::RUBY_CONTINUE) == 0) {
+      renderer.drawText(fontId, rubyX, wordY - ascender, rubyTexts[i].c_str(), true, EpdFontFamily::SUP);
     }
 
     // Normal uses layout-time focus annotations; Subtle remains render-only.
@@ -255,6 +293,13 @@ bool TextBlock::serialize(FsFile& file) const {
     for (auto b : wordFocusBoundary) serialization::writePod(file, b);
     for (auto sx : wordFocusSuffixX) serialization::writePod(file, sx);
   }
+  const uint8_t hasRubyAnnotations = hasRuby() ? 1 : 0;
+  serialization::writePod(file, hasRubyAnnotations);
+  if (hasRubyAnnotations != 0) {
+    for (size_t i = 0; i < words.size(); ++i) {
+      serialization::writeString(file, i < rubyTexts.size() ? rubyTexts[i] : std::string());
+    }
+  }
 
   // Style (alignment + margins/padding/indent)
   serialization::writePod(file, blockStyle.alignment);
@@ -305,6 +350,13 @@ std::unique_ptr<TextBlock> TextBlock::deserialize(FsFile& file) {
     for (auto& b : wordFocusBoundary) serialization::readPod(file, b);
     for (auto& sx : wordFocusSuffixX) serialization::readPod(file, sx);
   }
+  uint8_t hasRubyAnnotations = 0;
+  serialization::readPod(file, hasRubyAnnotations);
+  std::vector<std::string> rubyTexts;
+  if (hasRubyAnnotations != 0) {
+    rubyTexts.resize(wc);
+    for (auto& ruby : rubyTexts) serialization::readString(file, ruby);
+  }
 
   // Style (alignment + margins/padding/indent)
   serialization::readPod(file, blockStyle.alignment);
@@ -321,7 +373,8 @@ std::unique_ptr<TextBlock> TextBlock::deserialize(FsFile& file) {
   serialization::readPod(file, blockStyle.textIndentDefined);
 
   auto* block = new (std::nothrow) TextBlock(std::move(words), std::move(wordXpos), std::move(wordStyles),
-                                             std::move(wordFocusBoundary), std::move(wordFocusSuffixX), blockStyle);
+                                             std::move(wordFocusBoundary), std::move(wordFocusSuffixX), blockStyle,
+                                             std::move(rubyTexts));
   if (!block) {
     LOG_ERR("TXB", "Deserialization failed: could not allocate TextBlock");
     return nullptr;

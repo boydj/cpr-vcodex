@@ -6,6 +6,7 @@
 #include <optional>
 
 #include "BookmarkStore.h"
+#include "EndOfBookOptions.h"
 #include "EpubReaderMenuActivity.h"
 #include "activities/Activity.h"
 
@@ -45,6 +46,7 @@ class EpubReaderActivity final : public Activity {
   int sessionStartPage = 0;
   bool sessionProgressTouched = false;
   std::shared_ptr<Page> currentOverlayPageCache;
+  EndOfBookOptions endOfBookOptions;
   int currentOverlayPageSpineIndex = -1;
   int currentOverlayPageNumber = -1;
   int currentOverlayPageMarginLeft = 0;

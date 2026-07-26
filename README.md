@@ -35,8 +35,11 @@ Some of the main additions include:
 - customizable Home and Apps shortcuts, reader quick settings, reading layouts, themes, and Lyra Carousel workflow improvements
 - enhanced sleep tools, including custom image directories, cover/custom stats screens, sleep previews, cached sleep frames, and configurable clean sleep refresh
 - downloadable and manually installable SD-card fonts, including vCodex families such as `ChareInk` and `Lexend`
+- improved EPUB image handling for packed low-depth PNGs, scaled images and SVG image references, with low-memory band rendering and decode placeholders
+- native EPUB ruby annotations for Chinese/Japanese reading aids, plus next-book suggestions when a book is completed
 - Screen Clean, SD firmware update, Auto Flash, reading stats editor, and other maintenance/workflow utilities
-- KOReader Sync, OPDS filename options, reader refresh controls, Bionic Reading, text darkness, dark mode, and other reader quality-of-life settings
+- named KOReader Sync profiles with optional metadata, ask/smart synchronization behavior and per-profile account registration
+- OPDS filename options, reader refresh controls, Bionic Reading, text darkness, dark mode, and other reader quality-of-life settings
 - carefully selected upstream CrossPoint improvements and fixes adapted without dropping vCodex-specific behavior
 
 The philosophy of this fork is simple: keep the firmware fast, stable, and focused on reading, while making the device feel more rewarding and personal for people who read every day.
@@ -47,15 +50,15 @@ The philosophy of this fork is simple: keep the firmware fast, stable, and focus
 |---|---|
 | Project | `CPR-vCodex` |
 | Device | `Xteink X4`; `Xteink X3` compatibility reported by users, not personally tested |
-| Current release (CPR-vCodex) build | [`1.4.5.0-cpr-vcodex`](https://github.com/franssjz/cpr-vcodex/releases/tag/1.4.5.0-cpr-vcodex) |
+| Current release (CPR-vCodex) build | [`1.4.5.1-cpr-vcodex`](https://github.com/franssjz/cpr-vcodex/releases/tag/1.4.5.1-cpr-vcodex) |
 | Latest SD font package | [`sd-fonts-m1-b4`](https://github.com/franssjz/cpr-vcodex/releases/tag/sd-fonts-m1-b4) |
 | Changelog | [CHANGELOG.md](./CHANGELOG.md) |
-| Current release sync | Selected CrossPoint Reader EPUB, cache, Wi-Fi, and web improvements through [`3319aa17`](https://github.com/crosspoint-reader/crosspoint-reader/commit/3319aa17), reviewed against upstream through [`d0359edf`](https://github.com/crosspoint-reader/crosspoint-reader/commit/d0359edf), with `open-x4-sdk` [`198ad26`](https://github.com/crosspoint-reader/community-sdk/commit/198ad267219c25c8ab84418b806c66f1fb5216a3). |
-| Current release fixes | Improves EPUB correctness and indexing efficiency, adds hidden Wi-Fi and captive-portal support, exposes the device serial number, and adds drag-and-drop File Transfer uploads. |
-| Latest release notes | - Corrected footnotes, entities, Unicode normalization, anchors, line breaks, nested lists, CJK continuation, block styles, and `<sup>`/`<sub>` decoration in EPUBs.<br>- Reduced CSS, OPF, TOC, cache, and progress-write overhead during indexing and reading.<br>- Added hidden-network connection, captive-portal redirects, and serial-number display in the web UI.<br>- Added drag-and-drop multi-file uploads without removing EPUB optimization, cancellation, retry, or the normal picker. |
+| Current release sync | Selected CrossPoint Reader media, completion, KOReader Sync, and ruby improvements through [`d0359edf`](https://github.com/crosspoint-reader/crosspoint-reader/commit/d0359edf), manually adapted to retain the vCodex band renderer, KOReader profiles, reading statistics, highlights, themes, and SD-card fonts; `open-x4-sdk` remains at [`198ad26`](https://github.com/crosspoint-reader/community-sdk/commit/198ad267219c25c8ab84418b806c66f1fb5216a3). |
+| Current release fixes | Improves low-depth PNG, scaling and SVG image handling; adds decode placeholders, next-book suggestions, richer KOReader profiles, and native EPUB ruby annotations. |
+| Latest release notes | - Added packed 1/2/4-bit PNG support, corrected upscaling, local SVG image references, and placeholders without removing low-memory band rendering.<br>- Added up to three naturally sorted book suggestions after completing an EPUB or XTC book.<br>- Added per-profile KOReader metadata, optional Smart Sync, and account registration that does not silently alter the active profile or server.<br>- Added native `<ruby>`/`<rt>` layout for Chinese/Japanese reading aids when the selected font provides the required glyphs. |
 | Base firmware line | `CrossPoint Reader 1.4.5` |
 | Latest official commit reviewed | [`d0359edf`](https://github.com/crosspoint-reader/crosspoint-reader/commit/d0359edf) |
-| Latest official commit incorporated | Selected EPUB/rendering, cache, Wi-Fi, and web fixes from [`67936cb3`](https://github.com/crosspoint-reader/crosspoint-reader/commit/67936cb3) through [`3319aa17`](https://github.com/crosspoint-reader/crosspoint-reader/commit/3319aa17); larger upstream settings, UI, persistence, touch, RTL, OTA, and hardware rewrites remain intentionally deferred. |
+| Latest official commit incorporated | Selected EPUB/rendering, cache, Wi-Fi, web, media, completion, KOReader Sync, and ruby changes from [`67936cb3`](https://github.com/crosspoint-reader/crosspoint-reader/commit/67936cb3) through [`d0359edf`](https://github.com/crosspoint-reader/crosspoint-reader/commit/d0359edf); larger upstream settings, UI, persistence, touch, RTL, OTA, and hardware rewrites remain intentionally deferred. |
 | Intentional upstream exclusions | Unsupported upstream theme variants such as `RoundedRaff` remain out of the supported vCodex theme list; other upstream UI/config changes are adapted selectively to preserve the existing X4 workflow. |
 
 ## Web tools
@@ -594,7 +597,7 @@ Each packaged dev build now keeps the base firmware line and the local flash ide
 Practical values to look at:
 
 - base firmware line: `CrossPoint Reader 1.4.5`
-- current release build style: `1.4.5.0-cpr-vcodex`
+- current release build style: `1.4.5.1-cpr-vcodex`
 - packaged artifact style: `artifacts/<version>-cpr-vcodex.bin`
 
 The incremental `.bNNNN` suffix exists specifically to help distinguish newer flashes from older ones on real hardware.
@@ -664,10 +667,10 @@ Release publishing:
 - before tagging, run:
 
 ```powershell
-python scripts/pre_release_check.py --tag 1.4.5.0-cpr-vcodex
+python scripts/pre_release_check.py --tag 1.4.5.1-cpr-vcodex
 ```
 
-- push a stable tag named like `1.4.5.0-cpr-vcodex`
+- push a stable tag named like `1.4.5.1-cpr-vcodex`
 - the release workflow builds `gh_release`, validates that the packaged artifact
   name matches the tag, and attaches the flashable `<tag>.bin`, build metadata,
   and firmware-budget reports to the GitHub Release

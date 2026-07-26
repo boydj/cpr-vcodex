@@ -131,6 +131,7 @@ void ParsedText::addWord(std::string word, const EpdFontFamily::Style fontStyle,
     wordStyles.push_back(baseStyle);
     wordContinues.push_back(attachToPrevious);
     wordIsFocusSuffix.push_back(false);
+    if (!rubyTexts.empty()) rubyTexts.emplace_back();
     return;
   }
 
@@ -157,6 +158,7 @@ void ParsedText::addWord(std::string word, const EpdFontFamily::Style fontStyle,
     wordStyles.reserve(newCapacity);
     wordContinues.reserve(newCapacity);
     wordIsFocusSuffix.reserve(newCapacity);
+    if (!rubyTexts.empty()) rubyTexts.reserve(newCapacity);
   }
 
   // Lambda helper to process and push individual sub-segments of the string
@@ -168,6 +170,7 @@ void ParsedText::addWord(std::string word, const EpdFontFamily::Style fontStyle,
       wordStyles.push_back(baseStyle);
       wordContinues.push_back(attach);
       wordIsFocusSuffix.push_back(false);
+      if (!rubyTexts.empty()) rubyTexts.emplace_back();
     } else {
       size_t charCount = 0;
       const unsigned char* countPtr = reinterpret_cast<const unsigned char*>(segment.data());
@@ -189,6 +192,7 @@ void ParsedText::addWord(std::string word, const EpdFontFamily::Style fontStyle,
         wordStyles.push_back(static_cast<EpdFontFamily::Style>(baseStyle | EpdFontFamily::BOLD));
         wordContinues.push_back(attach);
         wordIsFocusSuffix.push_back(false);
+        if (!rubyTexts.empty()) rubyTexts.emplace_back();
       } else {
         countPtr = reinterpret_cast<const unsigned char*>(segment.data());
         for (size_t i = 0; i < targetBoldChars; ++i) {
@@ -201,12 +205,14 @@ void ParsedText::addWord(std::string word, const EpdFontFamily::Style fontStyle,
         wordStyles.push_back(static_cast<EpdFontFamily::Style>(baseStyle | EpdFontFamily::BOLD));
         wordContinues.push_back(attach);
         wordIsFocusSuffix.push_back(false);
+        if (!rubyTexts.empty()) rubyTexts.emplace_back();
 
         // Regular suffix - marked so extractLine can merge it back into single TextBlock entry
         words.emplace_back(segment.substr(splitByteOffset));
         wordStyles.push_back(baseStyle);
         wordContinues.push_back(true);
         wordIsFocusSuffix.push_back(true);
+        if (!rubyTexts.empty()) rubyTexts.emplace_back();
       }
     }
   };
@@ -246,6 +252,29 @@ void ParsedText::addWord(std::string word, const EpdFontFamily::Style fontStyle,
   size_t segmentLen = end - segmentStart;
   std::string_view segment(reinterpret_cast<const char*>(segmentStart), segmentLen);
   processSegment(segment, inWordSegment, isFirstSegment ? attachToPrevious : true);
+}
+
+void ParsedText::setRubyForWordAt(const size_t index, const std::string& ruby) {
+  if (index >= words.size()) return;
+  if (rubyTexts.size() < words.size()) rubyTexts.resize(words.size());
+  rubyTexts[index] = ruby;
+}
+
+void ParsedText::setRubyGroupAt(const size_t startIndex, const size_t count, const std::string& ruby) {
+  if (startIndex >= words.size() || count == 0) return;
+  if (rubyTexts.size() < words.size()) rubyTexts.resize(words.size());
+  rubyTexts[startIndex] = ruby;
+  for (size_t i = 1; i < count && startIndex + i < words.size(); ++i) {
+    const size_t index = startIndex + i;
+    rubyTexts[index].clear();
+    wordStyles[index] = static_cast<EpdFontFamily::Style>(static_cast<uint8_t>(wordStyles[index]) |
+                                                          EpdFontFamily::RUBY_CONTINUE);
+    wordContinues[index] = true;
+  }
+}
+
+void ParsedText::ensureRubyCapacity() {
+  if (rubyTexts.capacity() < words.capacity()) rubyTexts.reserve(words.capacity());
 }
 // Consumes data to minimize memory usage
 void ParsedText::layoutAndExtractLines(const GfxRenderer& renderer, const int fontId, const uint16_t viewportWidth,
@@ -299,6 +328,10 @@ void ParsedText::layoutAndExtractLines(const GfxRenderer& renderer, const int fo
     wordStyles.erase(wordStyles.begin(), wordStyles.begin() + consumed);
     wordContinues.erase(wordContinues.begin(), wordContinues.begin() + consumed);
     wordIsFocusSuffix.erase(wordIsFocusSuffix.begin(), wordIsFocusSuffix.begin() + consumed);
+    if (!rubyTexts.empty()) {
+      const size_t rubyConsumed = std::min(consumed, rubyTexts.size());
+      rubyTexts.erase(rubyTexts.begin(), rubyTexts.begin() + rubyConsumed);
+    }
   }
 }
 
@@ -308,6 +341,29 @@ std::vector<uint16_t> ParsedText::calculateWordWidths(const GfxRenderer& rendere
 
   for (size_t i = 0; i < words.size(); ++i) {
     wordWidths.push_back(measureWordWidth(renderer, fontId, words[i], wordStyles[i]));
+  }
+
+  // Reserve enough horizontal room for annotations wider than their base.
+  // The base is centered at render time; charging the overflow to the last
+  // group word keeps all members contiguous and prevents adjacent collisions.
+  if (!rubyTexts.empty()) {
+    for (size_t i = 0; i < words.size(); ++i) {
+      if (i >= rubyTexts.size() || rubyTexts[i].empty() ||
+          (wordStyles[i] & EpdFontFamily::RUBY_CONTINUE) != 0) {
+        continue;
+      }
+      size_t count = 1;
+      int baseWidth = wordWidths[i];
+      while (i + count < words.size() && (wordStyles[i + count] & EpdFontFamily::RUBY_CONTINUE) != 0) {
+        baseWidth += wordWidths[i + count];
+        ++count;
+      }
+      const int rubyWidth = renderer.getTextAdvanceX(fontId, rubyTexts[i].c_str(), EpdFontFamily::SUP);
+      if (rubyWidth > baseWidth) {
+        wordWidths[i + count - 1] = static_cast<uint16_t>(wordWidths[i + count - 1] + rubyWidth - baseWidth);
+      }
+      i += count - 1;
+    }
   }
 
   return wordWidths;
@@ -595,6 +651,9 @@ bool ParsedText::hyphenateWordAtIndex(const size_t wordIndex, const int availabl
   wordStyles.insert(wordStyles.begin() + wordIndex + 1, style);
   // The hyphen remainder is not a focus suffix - it starts fresh on the next line.
   wordIsFocusSuffix.insert(wordIsFocusSuffix.begin() + wordIndex + 1, false);
+  if (!rubyTexts.empty() && wordIndex + 1 <= rubyTexts.size()) {
+    rubyTexts.insert(rubyTexts.begin() + wordIndex + 1, "");
+  }
 
   // Continuation flag handling after splitting a word into prefix + remainder.
   //
@@ -732,6 +791,11 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
   std::vector<std::string> lineWords(std::make_move_iterator(words.begin() + lastBreakAt),
                                      std::make_move_iterator(words.begin() + lineBreak));
   std::vector<EpdFontFamily::Style> lineWordStyles(wordStyles.begin() + lastBreakAt, wordStyles.begin() + lineBreak);
+  std::vector<std::string> lineRubyTexts(lineWordCount);
+  if (!rubyTexts.empty() && lastBreakAt < rubyTexts.size()) {
+    const size_t copyCount = std::min(lineBreak, rubyTexts.size()) - lastBreakAt;
+    std::copy(rubyTexts.begin() + lastBreakAt, rubyTexts.begin() + lastBreakAt + copyCount, lineRubyTexts.begin());
+  }
 
   for (auto& word : lineWords) {
     if (containsSoftHyphen(word)) {
@@ -752,7 +816,8 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
 
   if (!lineHasFocusSplit) {
     processLine(std::make_shared<TextBlock>(std::move(lineWords), std::move(lineXPos), std::move(lineWordStyles),
-                                            std::vector<uint8_t>{}, std::vector<uint16_t>{}, blockStyle));
+                                            std::vector<uint8_t>{}, std::vector<uint16_t>{}, blockStyle,
+                                            std::move(lineRubyTexts)));
     return;
   }
 
@@ -764,11 +829,13 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
   std::vector<EpdFontFamily::Style> outStyles;
   std::vector<uint8_t> outBoundaries;
   std::vector<uint16_t> outSuffixX;
+  std::vector<std::string> outRubyTexts;
   outWords.reserve(lineWordCount);
   outXPos.reserve(lineWordCount);
   outStyles.reserve(lineWordCount);
   outBoundaries.reserve(lineWordCount);
   outSuffixX.reserve(lineWordCount);
+  outRubyTexts.reserve(lineWordCount);
 
   for (size_t i = 0; i < lineWordCount; i++) {
     if (wordIsFocusSuffix[lastBreakAt + i] && !outWords.empty()) {
@@ -793,9 +860,11 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
       outStyles.push_back(storedStyle);
       outBoundaries.push_back(boundary);
       outSuffixX.push_back(suffixX);
+      outRubyTexts.push_back(i < lineRubyTexts.size() ? std::move(lineRubyTexts[i]) : std::string());
     }
   }
 
   processLine(std::make_shared<TextBlock>(std::move(outWords), std::move(outXPos), std::move(outStyles),
-                                          std::move(outBoundaries), std::move(outSuffixX), blockStyle));
+                                          std::move(outBoundaries), std::move(outSuffixX), blockStyle,
+                                          std::move(outRubyTexts)));
 }

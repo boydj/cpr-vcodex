@@ -242,6 +242,8 @@ void EpubReaderActivity::onEnter() {
     return;
   }
 
+  ImageBlock::clearSessionRenderFailures();
+
   ensureSdFontLoaded();
 
   // Configure screen orientation based on settings
@@ -385,6 +387,33 @@ void EpubReaderActivity::loop() {
     }
   }
 
+  const bool atEndOfBook = currentSpineIndex > 0 && currentSpineIndex >= epub->getSpineItemsCount();
+  if (atEndOfBook && endOfBookOptions.menuActive()) {
+    std::string openPath;
+    switch (endOfBookOptions.handleMenuInput(mappedInput, &openPath)) {
+      case EndOfBookOptions::Action::OpenBook:
+        markStatsCompletedAtEnd(*epub, currentSpineIndex);
+        moveCompletedBookIfEnabled();
+        activityManager.goToReader(openPath);
+        return;
+      case EndOfBookOptions::Action::GoHome:
+        markStatsCompletedAtEnd(*epub, currentSpineIndex);
+        exitReaderAfterOptionalCompletedMove();
+        return;
+      case EndOfBookOptions::Action::LastPage:
+        currentSpineIndex = std::max(epub->getSpineItemsCount() - 1, 0);
+        nextPageNumber = 0;
+        pendingPageJump = std::numeric_limits<uint16_t>::max();
+        requestUpdate();
+        return;
+      case EndOfBookOptions::Action::Redraw:
+        requestUpdate();
+        return;
+      case EndOfBookOptions::Action::None:
+        break;
+    }
+  }
+
   if (ReaderUtils::shouldToggleStatusBar(mappedInput)) {
     toggleTemporaryStatusBar();
     return;
@@ -492,6 +521,7 @@ void EpubReaderActivity::loop() {
 
   // At end of the book, forward button goes home and back button returns to last page
   if (currentSpineIndex > 0 && currentSpineIndex >= epub->getSpineItemsCount()) {
+    if (endOfBookOptions.menuActive()) return;
     if (nextTriggered) {
       markStatsCompletedAtEnd(*epub, currentSpineIndex);
       if (tryAutoPushOnClose()) {
@@ -1276,8 +1306,10 @@ void EpubReaderActivity::render(RenderLock&& lock) {
 
   // Show end of book screen
   if (currentSpineIndex == epub->getSpineItemsCount()) {
+    markStatsCompletedAtEnd(*epub, currentSpineIndex);
+    endOfBookOptions.loadOnce(epub->getPath());
     renderer.clearScreen();
-    renderer.drawCenteredText(UI_12_FONT_ID, 300, tr(STR_END_OF_BOOK), true, EpdFontFamily::BOLD);
+    endOfBookOptions.render(renderer, mappedInput);
     renderer.displayBuffer();
     automaticPageTurnActive = false;
     return;
@@ -1660,6 +1692,15 @@ void EpubReaderActivity::renderContents(std::shared_ptr<Page> page, const int or
           heapAfter.freeHeap, static_cast<int32_t>(heapAfter.freeHeap) - static_cast<int32_t>(heapBefore.freeHeap),
           heapBefore.maxAllocHeap, heapAfter.maxAllocHeap,
           static_cast<int32_t>(heapAfter.maxAllocHeap) - static_cast<int32_t>(heapBefore.maxAllocHeap));
+
+  if (page->hasImagesNeedingDecode()) {
+    page->renderWithImagePlaceholders(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop,
+                                      SETTINGS.bionicReading);
+    drawTextHighlights(*page, orientedMarginTop, orientedMarginLeft);
+    renderStatusBar();
+    renderer.displayBuffer(HalDisplay::FAST_REFRESH);
+    renderer.clearScreen();
+  }
 
   const bool enableTextAA = SETTINGS.textAntiAliasing && !renderer.isDarkMode();
   const bool enableImageGrayscaleOnly = renderer.isDarkMode() && page->hasImages();

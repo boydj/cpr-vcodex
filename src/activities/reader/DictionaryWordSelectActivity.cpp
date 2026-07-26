@@ -68,13 +68,14 @@ void DictionaryWordSelectActivity::extractWords() {
 
     const auto& wordList = block->getWords();
     const auto& xPositions = block->getWordXpos();
+    const int rubyShift = block->getRubyShift(renderer.getFontAscenderSize(readerFontId));
     const size_t count = std::min(wordList.size(), xPositions.size());
     for (size_t i = 0; i < count; ++i) {
       const std::string cleaned =
           highlightPhraseMode ? visibleHighlightWord(wordList[i]) : DictionaryStore::cleanWord(wordList[i]);
       if (cleaned.find_first_not_of(" \t\r\n") == std::string::npos) continue;
       const int16_t x = static_cast<int16_t>(line.xPos + xPositions[i] + marginLeft);
-      const int16_t y = static_cast<int16_t>(line.yPos + marginTop);
+      const int16_t y = static_cast<int16_t>(line.yPos + marginTop + rubyShift);
       const int16_t width = static_cast<int16_t>(std::max(1, measureWordWidth(wordList[i].c_str())));
       words.push_back(WordInfo{wordList[i], cleaned, x, y, width, 0});
     }

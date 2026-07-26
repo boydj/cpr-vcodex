@@ -48,10 +48,26 @@ constexpr const char* BOLD_TAGS[] = {"b", "strong"};
 constexpr const char* ITALIC_TAGS[] = {"i", "em"};
 constexpr const char* UNDERLINE_TAGS[] = {"u", "ins"};
 constexpr const char* STRIKE_TAGS[] = {"s", "strike", "del"};
-constexpr const char* IMAGE_TAGS[] = {"img"};
-constexpr const char* SKIP_TAGS[] = {"head"};
+constexpr const char* IMAGE_TAGS[] = {"img", "image"};
+constexpr const char* SKIP_TAGS[] = {"head", "rp"};
 
 bool isWhitespace(const char c) { return c == ' ' || c == '\r' || c == '\n' || c == '\t'; }
+
+std::string trimAndNormalize(const std::string& text) {
+  std::string result;
+  result.reserve(text.size());
+  bool pendingSpace = false;
+  for (const char c : text) {
+    if (isWhitespace(c)) {
+      pendingSpace = !result.empty();
+    } else {
+      if (pendingSpace) result.push_back(' ');
+      result.push_back(c);
+      pendingSpace = false;
+    }
+  }
+  return result;
+}
 
 bool matches(const char* tag_name, const char* const* possible_tags, size_t count) {
   for (size_t i = 0; i < count; i++) {
@@ -1138,6 +1154,23 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
     return;
   }
 
+  if (strcmp(name, "ruby") == 0) {
+    self->flushPartWordBuffer();
+    self->inRuby = true;
+    self->rubyStartWordIndex = self->currentTextBlock ? static_cast<int>(self->currentTextBlock->size()) : 0;
+    if (self->currentTextBlock) self->currentTextBlock->ensureRubyCapacity();
+    self->rubyTextBuffer.clear();
+    self->depth += 1;
+    return;
+  }
+  if (strcmp(name, "rt") == 0) {
+    self->flushPartWordBuffer();
+    self->collectingRubyText = true;
+    self->rubyTextBuffer.clear();
+    self->depth += 1;
+    return;
+  }
+
   // Tables are streamed as plain content. EPUBs often use tables for dialogue/layout;
   // buffering them for grid rendering can make indexing painfully slow on-device.
   if (strcmp(name, "table") == 0) {
@@ -1231,10 +1264,17 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
       for (int i = 0; atts[i]; i += 2) {
         if (strcmp(atts[i], "src") == 0) {
           src = atts[i + 1];
+        } else if ((strcmp(atts[i], "href") == 0 || strcmp(atts[i], "xlink:href") == 0) && src.empty()) {
+          src = atts[i + 1];
         } else if (strcmp(atts[i], "alt") == 0) {
           alt = atts[i + 1];
         }
       }
+
+      // SVG image references may include a fragment identifier. The fragment
+      // selects content inside the resource, while extraction needs its path.
+      const size_t fragmentPos = src.find('#');
+      if (fragmentPos != std::string::npos) src.erase(fragmentPos);
 
       // Accessibility-only role/aria-hidden attributes do not hide visual content.
       // CSS display:none and the reader's image setting remain the visual controls.
@@ -1246,16 +1286,10 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
       }
 
       // Skip image if CSS display:none
-      if (self->cssParser) {
-        CssStyle imgDisplayStyle = self->cssParser->resolveStyle("img", classAttr);
-        if (!styleAttr.empty()) {
-          imgDisplayStyle.applyOver(CssParser::parseInlineStyle(styleAttr));
-        }
-        if (imgDisplayStyle.hasDisplay() && imgDisplayStyle.display == CssDisplay::None) {
-          self->skipUntilDepth = self->depth;
-          self->depth += 1;
-          return;
-        }
+      if (cssStyle.hasDisplay() && cssStyle.display == CssDisplay::None) {
+        self->skipUntilDepth = self->depth;
+        self->depth += 1;
+        return;
       }
 
       if (!src.empty() && self->imageRendering != 1) {
@@ -1306,11 +1340,7 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
                 int displayWidth = 0;
                 int displayHeight = 0;
                 const float emSize = static_cast<float>(self->renderer.getFontAscenderSize(self->fontId));
-                CssStyle imgStyle = self->cssParser ? self->cssParser->resolveStyle("img", classAttr) : CssStyle{};
-                // Merge inline style (e.g. style="height: 2em") so it overrides stylesheet rules
-                if (!styleAttr.empty()) {
-                  imgStyle.applyOver(CssParser::parseInlineStyle(styleAttr));
-                }
+                const CssStyle& imgStyle = cssStyle;
                 const bool hasCssHeight = imgStyle.hasImageHeight();
                 const bool hasCssWidth = imgStyle.hasImageWidth();
 
@@ -1818,6 +1848,11 @@ void XMLCALL ChapterHtmlSlimParser::characterData(void* userData, const XML_Char
     return;
   }
 
+  if (self->collectingRubyText) {
+    self->rubyTextBuffer.append(s, len);
+    return;
+  }
+
   // Collect footnote link display text (for the number label)
   // Skip whitespace and brackets to normalize noterefs like "[1]" → "1"
   if (self->insideFootnoteLink) {
@@ -2006,6 +2041,30 @@ void XMLCALL ChapterHtmlSlimParser::endElement(void* userData, const XML_Char* n
 
   if (const char* colon = std::strrchr(name, ':')) {
     name = colon + 1;
+  }
+
+  if (strcmp(name, "rt") == 0) {
+    self->collectingRubyText = false;
+    if (self->inRuby && self->currentTextBlock) {
+      const int currentWordCount = static_cast<int>(self->currentTextBlock->size());
+      const int baseWordCount = currentWordCount - self->rubyStartWordIndex;
+      const std::string cleanRuby = trimAndNormalize(self->rubyTextBuffer);
+      if (!cleanRuby.empty() && baseWordCount > 0) {
+        self->currentTextBlock->setRubyGroupAt(static_cast<size_t>(self->rubyStartWordIndex),
+                                               static_cast<size_t>(baseWordCount), cleanRuby);
+        self->rubyStartWordIndex = currentWordCount;
+      }
+    }
+    self->rubyTextBuffer.clear();
+    self->depth -= 1;
+    return;
+  }
+  if (strcmp(name, "ruby") == 0 && self->inRuby) {
+    self->inRuby = false;
+    self->rubyStartWordIndex = -1;
+    self->rubyTextBuffer.clear();
+    self->depth -= 1;
+    return;
   }
 
   // Check if any style state will change after we decrement depth
@@ -2282,7 +2341,8 @@ void ChapterHtmlSlimParser::addLineToPage(std::shared_ptr<TextBlock> line) {
     return;
   }
 
-  const int lineHeight = renderer.getLineHeight(fontId) * lineCompression;
+  const int lineHeight = renderer.getLineHeight(fontId) * lineCompression +
+                         line->getRubyShift(renderer.getFontAscenderSize(fontId));
 
   if (!currentPage) {
     if (!startNewPage("line layout")) {

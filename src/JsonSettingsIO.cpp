@@ -1152,6 +1152,8 @@ bool JsonSettingsIO::saveKOReader(const KOReaderCredentialStore& store, const ch
     obj["password_obf"] = obfuscation::obfuscateToBase64(profile.password);
     obj["serverUrl"] = profile.serverUrl;
     obj["matchMethod"] = static_cast<uint8_t>(profile.matchMethod);
+    obj["sendMetadata"] = profile.sendMetadata;
+    obj["syncBehavior"] = static_cast<uint8_t>(profile.syncBehavior);
   }
   doc["activeIndex"] = store.activeIndex;
 
@@ -1185,7 +1187,14 @@ bool JsonSettingsIO::loadKOReader(KOReaderCredentialStore& store, const char* js
       }
       profile.serverUrl = obj["serverUrl"] | std::string("");
       uint8_t method = obj["matchMethod"] | (uint8_t)0;
-      profile.matchMethod = static_cast<DocumentMatchMethod>(method);
+      profile.matchMethod = method <= static_cast<uint8_t>(DocumentMatchMethod::BINARY)
+                                ? static_cast<DocumentMatchMethod>(method)
+                                : DocumentMatchMethod::FILENAME;
+      profile.sendMetadata = obj["sendMetadata"] | false;
+      const uint8_t behavior = obj["syncBehavior"] | static_cast<uint8_t>(KOReaderSyncBehavior::ASK_EVERY_TIME);
+      profile.syncBehavior = behavior <= static_cast<uint8_t>(KOReaderSyncBehavior::SMART)
+                                 ? static_cast<KOReaderSyncBehavior>(behavior)
+                                 : KOReaderSyncBehavior::ASK_EVERY_TIME;
       store.profiles.push_back(std::move(profile));
     }
     const int active = doc["activeIndex"] | 0;
@@ -1204,8 +1213,16 @@ bool JsonSettingsIO::loadKOReader(KOReaderCredentialStore& store, const char* js
       profile.password = doc["password"] | std::string("");
     }
     profile.serverUrl = doc["serverUrl"] | std::string("");
-    uint8_t method = doc["matchMethod"] | (uint8_t)0;
-    profile.matchMethod = static_cast<DocumentMatchMethod>(method);
+    const uint8_t method = doc["matchMethod"] | static_cast<uint8_t>(DocumentMatchMethod::FILENAME);
+    profile.matchMethod = method <= static_cast<uint8_t>(DocumentMatchMethod::BINARY)
+                              ? static_cast<DocumentMatchMethod>(method)
+                              : DocumentMatchMethod::FILENAME;
+    profile.sendMetadata = doc["sendMetadata"] | false;
+    const uint8_t behavior =
+        doc["syncBehavior"] | static_cast<uint8_t>(KOReaderSyncBehavior::ASK_EVERY_TIME);
+    profile.syncBehavior = behavior <= static_cast<uint8_t>(KOReaderSyncBehavior::SMART)
+                               ? static_cast<KOReaderSyncBehavior>(behavior)
+                               : KOReaderSyncBehavior::ASK_EVERY_TIME;
 
     store.profiles.clear();
     store.profiles.push_back(std::move(profile));
@@ -1227,6 +1244,8 @@ bool JsonSettingsIO::saveKOReaderLegacyMirror(const KOReaderCredentialStore& sto
   doc["password_obf"] = obfuscation::obfuscateToBase64(store.getPassword());
   doc["serverUrl"] = store.getServerUrl();
   doc["matchMethod"] = static_cast<uint8_t>(store.getMatchMethod());
+  doc["sendMetadata"] = store.getSendMetadata();
+  doc["syncBehavior"] = static_cast<uint8_t>(store.getSyncBehavior());
   return saveJsonDocumentToFile("KRS", path, doc);
 }
 
@@ -1246,8 +1265,16 @@ bool JsonSettingsIO::loadKOReaderLegacyProfile(KOReaderProfile& profile, const c
     profile.password = doc["password"] | std::string("");
   }
   profile.serverUrl = doc["serverUrl"] | std::string("");
-  uint8_t method = doc["matchMethod"] | (uint8_t)0;
-  profile.matchMethod = static_cast<DocumentMatchMethod>(method);
+  const uint8_t method = doc["matchMethod"] | static_cast<uint8_t>(DocumentMatchMethod::FILENAME);
+  profile.matchMethod = method <= static_cast<uint8_t>(DocumentMatchMethod::BINARY)
+                            ? static_cast<DocumentMatchMethod>(method)
+                            : DocumentMatchMethod::FILENAME;
+  profile.sendMetadata = doc["sendMetadata"] | false;
+  const uint8_t behavior =
+      doc["syncBehavior"] | static_cast<uint8_t>(KOReaderSyncBehavior::ASK_EVERY_TIME);
+  profile.syncBehavior = behavior <= static_cast<uint8_t>(KOReaderSyncBehavior::SMART)
+                             ? static_cast<KOReaderSyncBehavior>(behavior)
+                             : KOReaderSyncBehavior::ASK_EVERY_TIME;
 
   LOG_DBG("KRS", "Loaded legacy KOReader credentials for user: %s", profile.username.c_str());
   return true;
