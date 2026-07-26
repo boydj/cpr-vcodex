@@ -137,9 +137,25 @@ void ParsedText::addWord(std::string word, const EpdFontFamily::Style fontStyle,
 
   // --- FOCUS READING LOGIC BELOW ---
 
-  // Pre-reserve capacity to prevent mid-word heap reallocations.
-  size_t maxPossibleNewTokens = word.length();
-  size_t requiredSize = words.size() + maxPossibleNewTokens;
+  // Reserve for the actual segment upper bound, not every byte in the input.
+  // The old byte-count reservation could allocate several times the necessary
+  // memory for long UTF-8/CSS-heavy runs and was a common layout OOM trigger.
+  size_t maxPossibleNewTokens = 0;
+  {
+    const unsigned char* scan = reinterpret_cast<const unsigned char*>(word.c_str());
+    const unsigned char* const scanEnd = scan + word.length();
+    bool haveSegment = false;
+    bool previousWasWord = false;
+    while (scan < scanEnd) {
+      const bool currentIsWord = isWordCharacter(utf8NextCodepoint(&scan));
+      if (!haveSegment || currentIsWord != previousWasWord) {
+        maxPossibleNewTokens += currentIsWord ? 2 : 1;
+        haveSegment = true;
+        previousWasWord = currentIsWord;
+      }
+    }
+  }
+  const size_t requiredSize = words.size() + maxPossibleNewTokens;
 
   if (words.capacity() < requiredSize) {
     // Emulate standard geometric growth (doubling) to ensure we don't reallocate on every word.
@@ -267,8 +283,8 @@ void ParsedText::setRubyGroupAt(const size_t startIndex, const size_t count, con
   for (size_t i = 1; i < count && startIndex + i < words.size(); ++i) {
     const size_t index = startIndex + i;
     rubyTexts[index].clear();
-    wordStyles[index] = static_cast<EpdFontFamily::Style>(static_cast<uint8_t>(wordStyles[index]) |
-                                                          EpdFontFamily::RUBY_CONTINUE);
+    wordStyles[index] =
+        static_cast<EpdFontFamily::Style>(static_cast<uint8_t>(wordStyles[index]) | EpdFontFamily::RUBY_CONTINUE);
     wordContinues[index] = true;
   }
 }
@@ -348,8 +364,7 @@ std::vector<uint16_t> ParsedText::calculateWordWidths(const GfxRenderer& rendere
   // group word keeps all members contiguous and prevents adjacent collisions.
   if (!rubyTexts.empty()) {
     for (size_t i = 0; i < words.size(); ++i) {
-      if (i >= rubyTexts.size() || rubyTexts[i].empty() ||
-          (wordStyles[i] & EpdFontFamily::RUBY_CONTINUE) != 0) {
+      if (i >= rubyTexts.size() || rubyTexts[i].empty() || (wordStyles[i] & EpdFontFamily::RUBY_CONTINUE) != 0) {
         continue;
       }
       size_t count = 1;
@@ -815,9 +830,10 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
   }
 
   if (!lineHasFocusSplit) {
-    processLine(std::make_shared<TextBlock>(std::move(lineWords), std::move(lineXPos), std::move(lineWordStyles),
-                                            std::vector<uint8_t>{}, std::vector<uint16_t>{}, blockStyle,
-                                            std::move(lineRubyTexts)));
+    auto block = std::shared_ptr<TextBlock>(new (std::nothrow)
+                                                TextBlock(lineWords, lineXPos, lineWordStyles, std::vector<uint8_t>{},
+                                                          std::vector<uint16_t>{}, blockStyle, lineRubyTexts));
+    processLine(block && block->valid() ? std::move(block) : nullptr);
     return;
   }
 
@@ -864,7 +880,7 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
     }
   }
 
-  processLine(std::make_shared<TextBlock>(std::move(outWords), std::move(outXPos), std::move(outStyles),
-                                          std::move(outBoundaries), std::move(outSuffixX), blockStyle,
-                                          std::move(outRubyTexts)));
+  auto block = std::shared_ptr<TextBlock>(
+      new (std::nothrow) TextBlock(outWords, outXPos, outStyles, outBoundaries, outSuffixX, blockStyle, outRubyTexts));
+  processLine(block && block->valid() ? std::move(block) : nullptr);
 }
