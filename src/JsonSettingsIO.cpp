@@ -65,6 +65,64 @@ class HalFileStream : public Stream {
   int peekedByte = -1;
 };
 
+bool copyVerifiedJsonTempToTarget(const char* moduleName, const std::string& tempPath,
+                                  const std::string& targetPath, const size_t expectedSize) {
+  HalFile source;
+  if (!Storage.openFileForRead(moduleName, tempPath.c_str(), source)) {
+    return false;
+  }
+
+  HalFile target;
+  if (!Storage.openFileForWrite(moduleName, targetPath.c_str(), target)) {
+    source.close();
+    return false;
+  }
+
+  uint8_t buffer[256];
+  size_t copied = 0;
+  bool complete = true;
+  while (true) {
+    const int readBytes = source.read(buffer, sizeof(buffer));
+    if (readBytes < 0) {
+      complete = false;
+      break;
+    }
+    if (readBytes == 0) {
+      break;
+    }
+
+    const size_t written = target.write(buffer, static_cast<size_t>(readBytes));
+    if (written != static_cast<size_t>(readBytes)) {
+      complete = false;
+      break;
+    }
+    copied += written;
+  }
+
+  target.flush();
+  target.close();
+  source.close();
+
+  if (!complete || copied != expectedSize) {
+    Storage.remove(targetPath.c_str());
+    return false;
+  }
+
+  HalFile verification;
+  if (!Storage.openFileForRead(moduleName, targetPath.c_str(), verification)) {
+    Storage.remove(targetPath.c_str());
+    return false;
+  }
+  const bool sizeMatches = verification.fileSize64() == expectedSize;
+  verification.close();
+  if (!sizeMatches) {
+    Storage.remove(targetPath.c_str());
+    return false;
+  }
+
+  return true;
+}
+
 bool saveJsonDocumentToFile(const char* moduleName, const char* path, const JsonDocument& doc) {
   const std::string targetPath = path ? path : "";
   const std::string tempPath = targetPath + ".tmp";
@@ -113,10 +171,21 @@ bool saveJsonDocumentToFile(const char* moduleName, const char* path, const Json
   }
 
   if (!Storage.rename(tempPath.c_str(), targetPath.c_str())) {
+    LOG_ERR(moduleName, "Could not rename JSON temp file to final path: %s; trying checked copy", targetPath.c_str());
+    CPR_VCODEX_LOG_EVENT(moduleName,
+                         std::string("JSON temp rename failed; trying checked copy for ") + targetPath);
+
+    if (!copyVerifiedJsonTempToTarget(moduleName, tempPath, targetPath, expected)) {
+      LOG_ERR(moduleName, "Could not promote JSON temp file to final path: %s", targetPath.c_str());
+      CPR_VCODEX_LOG_EVENT(moduleName,
+                           std::string("Could not promote JSON temp file; kept it for recovery: ") + tempPath);
+      return false;
+    }
+
     Storage.remove(tempPath.c_str());
-    LOG_ERR(moduleName, "Could not rename JSON temp file to final path: %s", targetPath.c_str());
-    CPR_VCODEX_LOG_EVENT(moduleName, std::string("Could not rename JSON temp file to final path: ") + targetPath);
-    return false;
+    LOG_DBG(moduleName, "Recovered JSON replacement via checked copy: %s", targetPath.c_str());
+    CPR_VCODEX_LOG_EVENT(moduleName,
+                         std::string("Recovered JSON replacement via checked copy: ") + targetPath);
   }
 
   return true;
@@ -1499,7 +1568,7 @@ bool JsonSettingsIO::saveReadingStats(const ReadingStatsStore& store, const char
 }
 
 bool JsonSettingsIO::loadReadingStatsDocument(ReadingStatsStore& store, const JsonDocument& doc) {
-  if (!doc.is<JsonObject>()) {
+  if (!doc.is<JsonObjectConst>()) {
     CPR_VCODEX_LOG_EVENT("RST", "Reading stats root is not a JSON object");
     return false;
   }
@@ -1525,7 +1594,7 @@ bool JsonSettingsIO::loadReadingStatsDocument(ReadingStatsStore& store, const Js
       missingCurrentArray = missingCurrentArray || formatVersion >= 6;
       continue;
     }
-    if (!value.is<JsonArray>()) {
+    if (!value.is<JsonArrayConst>()) {
       CPR_VCODEX_LOG_EVENT("RST", std::string("Reading stats field is not an array: ") + key);
       return false;
     }
@@ -1537,22 +1606,22 @@ bool JsonSettingsIO::loadReadingStatsDocument(ReadingStatsStore& store, const Js
   }
 
   for (JsonVariantConst value : doc["books"].as<JsonArrayConst>()) {
-    if (!value.is<JsonObject>()) {
+    if (!value.is<JsonObjectConst>()) {
       CPR_VCODEX_LOG_EVENT("RST", "Reading stats books contains a non-object entry");
       return false;
     }
     const JsonObjectConst obj = value.as<JsonObjectConst>();
-    if (!obj["knownPaths"].isNull() && !obj["knownPaths"].is<JsonArray>()) {
+    if (!obj["knownPaths"].isNull() && !obj["knownPaths"].is<JsonArrayConst>()) {
       CPR_VCODEX_LOG_EVENT("RST", "Reading stats knownPaths is not an array");
       return false;
     }
-    if (formatVersion >= 2 && !obj["readingDays"].isNull() && !obj["readingDays"].is<JsonArray>()) {
+    if (formatVersion >= 2 && !obj["readingDays"].isNull() && !obj["readingDays"].is<JsonArrayConst>()) {
       CPR_VCODEX_LOG_EVENT("RST", "Reading stats book readingDays is not an array");
       return false;
     }
   }
   for (JsonVariantConst value : doc["sessionLog"].as<JsonArrayConst>()) {
-    if (!value.is<JsonObject>()) {
+    if (!value.is<JsonObjectConst>()) {
       CPR_VCODEX_LOG_EVENT("RST", "Reading stats sessionLog contains a non-object entry");
       return false;
     }
@@ -1567,7 +1636,7 @@ bool JsonSettingsIO::loadReadingStatsDocument(ReadingStatsStore& store, const Js
   auto appendReadingDays = [](std::vector<ReadingDayStats>& destination, JsonArrayConst source) {
     for (JsonVariantConst value : source) {
       ReadingDayStats day;
-      if (value.is<JsonObject>()) {
+      if (value.is<JsonObjectConst>()) {
         JsonObjectConst obj = value.as<JsonObjectConst>();
         day.dayOrdinal = obj["dayOrdinal"] | static_cast<uint32_t>(0);
         day.readingMs = obj["readingMs"] | static_cast<uint64_t>(0);

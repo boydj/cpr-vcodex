@@ -50,12 +50,12 @@ The philosophy of this fork is simple: keep the firmware fast, stable, and focus
 |---|---|
 | Project | `CPR-vCodex` |
 | Device | `Xteink X4`; `Xteink X3` compatibility reported by users, not personally tested |
-| Current release (CPR-vCodex) build | [`1.5.0.2-cpr-vcodex`](https://github.com/franssjz/cpr-vcodex/releases/tag/1.5.0.2-cpr-vcodex) |
+| Current release (CPR-vCodex) build | [`1.5.0.3-cpr-vcodex`](https://github.com/franssjz/cpr-vcodex/releases/tag/1.5.0.3-cpr-vcodex) |
 | Latest SD font package | [`sd-fonts-m1-b4`](https://github.com/franssjz/cpr-vcodex/releases/tag/sd-fonts-m1-b4) |
 | Changelog | [CHANGELOG.md](./CHANGELOG.md) |
 | Current release sync | Selected CrossPoint Reader 1.5 EPUB indexing and memory work through [`f0a50557`](https://github.com/crosspoint-reader/crosspoint-reader/commit/f0a50557), manually adapted to retain the vCodex band renderer, KOReader profiles, reading statistics, highlights, themes, ruby, and SD-card fonts; `open-x4-sdk` remains at [`198ad26`](https://github.com/crosspoint-reader/community-sdk/commit/198ad267219c25c8ab84418b806c66f1fb5216a3). |
-| Current release focus | Restores safe backward compatibility for historical Reading Stats and prevents any failed load from being overwritten by later reading activity. |
-| Latest release notes | - Fixes the `1.5.0.1` regression that could reject older format-v6 statistics when aggregate and per-book totals differed.<br>- Reconciles mismatches conservatively by retaining the greatest daily total, preserving unattributed time, and never reducing richer per-book data.<br>- Leaves current statistics untouched after a malformed import and suspends persistence if neither the main file nor backup can be loaded.<br>- Keeps the lower-memory streaming import and partial-write protection introduced in `1.5.0.1`. |
+| Current release focus | Restores loading and importing of valid historical Reading Stats while preserving the recovery safeguards added in `1.5.0.2`. |
+| Latest release notes | - Fixes the remaining `1.5.0.1`/`1.5.0.2` regression that made valid format-v6 main files, internal backups, and imports appear empty or report `Import failed`.<br>- Existing statistics and dated weekly backups load again without conversion or renaming.<br>- Adds a checked FAT32 copy fallback for the rare case where a verified temporary JSON file cannot be renamed into place.<br>- Adds a release regression check for const-correct ArduinoJson validation. |
 | Base firmware line | `CrossPoint Reader 1.5.0` |
 | Latest official commit reviewed | [`f0a50557`](https://github.com/crosspoint-reader/crosspoint-reader/commit/f0a50557) |
 | Latest official commit incorporated | Selected EPUB/rendering, cache, Wi-Fi, web, media, completion, KOReader Sync, ruby, and progressive-indexing changes from [`67936cb3`](https://github.com/crosspoint-reader/crosspoint-reader/commit/67936cb3) through [`f0a50557`](https://github.com/crosspoint-reader/crosspoint-reader/commit/f0a50557); larger upstream settings, UI, persistence, touch, RTL, OTA, and hardware rewrites remain intentionally deferred. |
@@ -586,7 +586,14 @@ Important artifacts include:
 - `/.crosspoint/achievements.json`
 - `/.crosspoint/recent.json`
 - per-book `bookmarks.bin`, now a versioned Highlights store that retains legacy page bookmarks
-- `/exports/*.json` for reading stats export/import
+- `/exports/stats_exported` for manual Reading Stats export/import
+- `/exports/stats_backup_YYYY-MM-DD` for automatic dated Reading Stats backups (every 7 days by default)
+
+### Recovering Reading Stats after 1.5.0.1 or 1.5.0.2
+
+Update to `1.5.0.3-cpr-vcodex` before resetting or deleting any data. In most cases the existing `/.crosspoint/reading_stats.json` will load automatically after the update because the affected releases rejected the file without overwriting it.
+
+If the displayed totals are still incomplete or incorrect, open `Settings > Apps > Reading Stats > Import Reading Stats` and select the newest suitable dated backup under `/exports/stats_backup_YYYY-MM-DD`. Those weekly backups appear directly in the import list and do not need to be renamed. If the only copy is on a computer, place it on the SD card as exactly `/exports/stats_exported` (without a `.json` extension), then import it. Try older dated backups newest-first if necessary, and preserve a copy of the SD card before cleaning or resetting statistics.
 
 This is one of the main reasons the fork was rebuilt on a cleaner upstream-derived base instead of continuing to patch the older fork in place.
 
@@ -597,7 +604,7 @@ Each packaged dev build now keeps the base firmware line and the local flash ide
 Practical values to look at:
 
 - base firmware line: `CrossPoint Reader 1.5.0`
-- current release build style: `1.5.0.2-cpr-vcodex`
+- current release build style: `1.5.0.3-cpr-vcodex`
 - packaged artifact style: `artifacts/<version>-cpr-vcodex.bin`
 
 The incremental `.bNNNN` suffix exists specifically to help distinguish newer flashes from older ones on real hardware.
@@ -667,10 +674,10 @@ Release publishing:
 - before tagging, run:
 
 ```powershell
-python scripts/pre_release_check.py --tag 1.5.0.2-cpr-vcodex
+python scripts/pre_release_check.py --tag 1.5.0.3-cpr-vcodex
 ```
 
-- push a stable tag named like `1.5.0.2-cpr-vcodex`
+- push a stable tag named like `1.5.0.3-cpr-vcodex`
 - the release workflow builds `gh_release`, validates that the packaged artifact
   name matches the tag, and attaches the flashable `<tag>.bin`, build metadata,
   and firmware-budget reports to the GitHub Release
