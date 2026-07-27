@@ -1517,12 +1517,23 @@ bool JsonSettingsIO::loadReadingStatsDocument(ReadingStatsStore& store, const Js
   }
 
   static constexpr const char* ARRAY_KEYS[] = {"readingDays", "legacyReadingDays", "sessionLog", "books"};
+  bool hasStatsArray = false;
+  bool missingCurrentArray = false;
   for (const char* key : ARRAY_KEYS) {
     const JsonVariantConst value = doc[key];
-    if ((!value.isNull() || formatVersion >= 6) && !value.is<JsonArray>()) {
+    if (value.isNull()) {
+      missingCurrentArray = missingCurrentArray || formatVersion >= 6;
+      continue;
+    }
+    if (!value.is<JsonArray>()) {
       CPR_VCODEX_LOG_EVENT("RST", std::string("Reading stats field is not an array: ") + key);
       return false;
     }
+    hasStatsArray = true;
+  }
+  if (!hasStatsArray) {
+    CPR_VCODEX_LOG_EVENT("RST", "Reading stats document has no recognized data arrays");
+    return false;
   }
 
   for (JsonVariantConst value : doc["books"].as<JsonArrayConst>()) {
@@ -1551,7 +1562,7 @@ bool JsonSettingsIO::loadReadingStatsDocument(ReadingStatsStore& store, const Js
   store.legacyReadingDays.clear();
   store.readingDays.clear();
   store.sessionLog.clear();
-  store.dirty = false;
+  store.dirty = missingCurrentArray;
 
   auto appendReadingDays = [](std::vector<ReadingDayStats>& destination, JsonArrayConst source) {
     for (JsonVariantConst value : source) {
@@ -1657,21 +1668,29 @@ bool JsonSettingsIO::loadReadingStatsDocument(ReadingStatsStore& store, const Js
       days.resize(writeIndex);
     };
     normalizeDays(declaredReadingDays);
-    const bool aggregatesMatch = declaredReadingDays.size() == store.readingDays.size() &&
-                                 std::equal(declaredReadingDays.begin(), declaredReadingDays.end(),
-                                            store.readingDays.begin(), [](const ReadingDayStats& left,
-                                                                         const ReadingDayStats& right) {
-                                              return left.dayOrdinal == right.dayOrdinal &&
-                                                     left.readingMs == right.readingMs;
-                                            });
-    if (!aggregatesMatch) {
-      store.books.clear();
-      store.legacyReadingDays.clear();
-      store.readingDays.clear();
-      store.sessionLog.clear();
-      store.dirty = false;
-      CPR_VCODEX_LOG_EVENT("RST", "Reading stats aggregate totals do not match per-book data");
-      return false;
+
+    bool aggregateMismatch = declaredReadingDays.size() != store.readingDays.size();
+    for (const auto& declaredDay : declaredReadingDays) {
+      const auto rebuiltIt =
+          std::lower_bound(store.readingDays.begin(), store.readingDays.end(), declaredDay.dayOrdinal,
+                           [](const ReadingDayStats& day, const uint32_t ordinal) { return day.dayOrdinal < ordinal; });
+      const bool hasRebuiltDay =
+          rebuiltIt != store.readingDays.end() && rebuiltIt->dayOrdinal == declaredDay.dayOrdinal;
+      const uint64_t rebuiltMs = hasRebuiltDay ? rebuiltIt->readingMs : 0;
+      if (rebuiltMs != declaredDay.readingMs) {
+        aggregateMismatch = true;
+      }
+      if (declaredDay.readingMs > rebuiltMs) {
+        store.legacyReadingDays.push_back(
+            ReadingDayStats{declaredDay.dayOrdinal, declaredDay.readingMs - rebuiltMs});
+      }
+    }
+
+    if (aggregateMismatch) {
+      normalizeDays(store.legacyReadingDays);
+      store.rebuildAggregatedReadingDays();
+      store.dirty = true;
+      CPR_VCODEX_LOG_EVENT("RST", "Reconciled reading stats aggregate totals without discarding stored data");
     }
   }
 

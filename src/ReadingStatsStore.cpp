@@ -1692,7 +1692,6 @@ bool ReadingStatsStore::importFromFile(const std::string& path) {
           heap_caps_get_largest_free_block(MALLOC_CAP_8BIT | MALLOC_CAP_DEFAULT));
   const bool loaded = JsonSettingsIO::loadReadingStatsFromFile(*this, path.c_str());
   if (!loaded) {
-    reloadOriginalStats();
     return false;
   }
 
@@ -1803,6 +1802,10 @@ bool ReadingStatsStore::loadFromFile() {
   } else if (loaded && !hasAnyStats() && statsFileAppearsToHaveData(READING_STATS_BACKUP_FILE_JSON) &&
              restoreInternalBackupToMain("empty main file")) {
     loaded = loadMainFile();
+  }
+  if (!loaded) {
+    markLoadSkippedForRecovery();
+    CPR_VCODEX_LOG_EVENT("RST", "Reading stats persistence suspended after load failure");
   }
   return loaded;
 }
