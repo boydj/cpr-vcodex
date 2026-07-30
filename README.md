@@ -50,12 +50,12 @@ The philosophy of this fork is simple: keep the firmware fast, stable, and focus
 |---|---|
 | Project | `CPR-vCodex` |
 | Device | `Xteink X4`; `Xteink X3` compatibility reported by users, not personally tested |
-| Current release (CPR-vCodex) build | [`1.5.0.4-cpr-vcodex`](https://github.com/franssjz/cpr-vcodex/releases/tag/1.5.0.4-cpr-vcodex) |
+| Current release (CPR-vCodex) build | [`1.5.0.5-cpr-vcodex`](https://github.com/franssjz/cpr-vcodex/releases/tag/1.5.0.5-cpr-vcodex) |
 | Latest SD font package | [`sd-fonts-m1-b4`](https://github.com/franssjz/cpr-vcodex/releases/tag/sd-fonts-m1-b4) |
 | Changelog | [CHANGELOG.md](./CHANGELOG.md) |
 | Current release sync | Selected CrossPoint Reader 1.5 EPUB indexing and memory work through [`f0a50557`](https://github.com/crosspoint-reader/crosspoint-reader/commit/f0a50557), manually adapted to retain the vCodex band renderer, KOReader profiles, reading statistics, highlights, themes, ruby, and SD-card fonts; `open-x4-sdk` remains at [`198ad26`](https://github.com/crosspoint-reader/community-sdk/commit/198ad267219c25c8ab84418b806c66f1fb5216a3). |
-| Current release focus | Adds meaningful SD-card file timestamps from the RTC/system clock or the last known Sync Day time. |
-| Latest release notes | - Adds reliable FAT create/modify timestamps for screenshots, logs, downloads, caches, and other generated SD-card files.<br>- Uses the live RTC/system clock when available and falls back to the last known Sync Day time.<br>- Retains SdFat's compile-date placeholder when the device has never learned a valid wall clock. |
+| Current release focus | Restores the exact saved EPUB page when reopening during progressive indexing. |
+| Latest release notes | - Fixes EPUBs reopening several pages behind while the progressive page-count estimate converges.<br>- Keeps exact saved pages stable when indexing completes.<br>- Retains relative position remapping when font, orientation, or viewport changes genuinely repaginate a chapter. |
 | Base firmware line | `CrossPoint Reader 1.5.0` |
 | Latest official commit reviewed | [`f0a50557`](https://github.com/crosspoint-reader/crosspoint-reader/commit/f0a50557) |
 | Latest official commit incorporated | Selected EPUB/rendering, cache, Wi-Fi, web, media, completion, KOReader Sync, ruby, and progressive-indexing changes from [`67936cb3`](https://github.com/crosspoint-reader/crosspoint-reader/commit/67936cb3) through [`f0a50557`](https://github.com/crosspoint-reader/crosspoint-reader/commit/f0a50557); larger upstream settings, UI, persistence, touch, RTL, OTA, and hardware rewrites remain intentionally deferred. |
