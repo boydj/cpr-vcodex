@@ -26,6 +26,9 @@ class EpubReaderActivity final : public Activity {
   int pagesUntilFullRefresh = 0;
   int cachedSpineIndex = 0;
   int cachedChapterTotalPageCount = 0;
+  // Page numbers are stable across a progressive-cache rebuild. Remap by percentage only
+  // when a settings or viewport change actually caused the chapter to be repaginated.
+  bool pendingPaginationReposition = false;
   unsigned long lastPageTurnTime = 0UL;
   unsigned long pageTurnDuration = 0UL;
   // Signals that the next render should reposition within the newly loaded section

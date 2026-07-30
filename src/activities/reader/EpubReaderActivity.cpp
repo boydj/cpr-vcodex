@@ -33,6 +33,7 @@
 #include "ProgressFile.h"
 #include "ProgressMapper.h"
 #include "QrDisplayActivity.h"
+#include "ReaderPosition.h"
 #include "ReaderQuickSettingsActivity.h"
 #include "ReaderUtils.h"
 #include "ReadingStatsStore.h"
@@ -371,14 +372,14 @@ bool EpubReaderActivity::buildTickHeapGate() {
 bool EpubReaderActivity::applyDeferredReposition() {
   if (!section || section->isBuilding() || cachedChapterTotalPageCount == 0) return false;
   bool changed = false;
-  if (currentSpineIndex == cachedSpineIndex && section->pageCount != cachedChapterTotalPageCount) {
-    const float progress = static_cast<float>(section->currentPage) / cachedChapterTotalPageCount;
-    int newPage = static_cast<int>(progress * section->pageCount);
-    newPage = std::max(0, std::min(newPage, static_cast<int>(section->pageCount) - 1));
+  if (currentSpineIndex == cachedSpineIndex) {
+    const int newPage = ReaderPosition::resolveRestoredPage(section->currentPage, cachedChapterTotalPageCount,
+                                                            section->pageCount, pendingPaginationReposition);
     changed = newPage != section->currentPage;
     section->currentPage = newPage;
   }
   cachedChapterTotalPageCount = 0;
+  pendingPaginationReposition = false;
   return changed;
 }
 
@@ -675,6 +676,7 @@ void EpubReaderActivity::toggleTemporaryStatusBar() {
   if (section) {
     cachedSpineIndex = currentSpineIndex;
     cachedChapterTotalPageCount = section->estimatedTotalPages();
+    pendingPaginationReposition = true;
     nextPageNumber = section->currentPage;
   }
   section.reset();
@@ -899,6 +901,7 @@ void EpubReaderActivity::applyReaderSettingsChanges(const ReaderSettingsSnapshot
     if (section) {
       cachedSpineIndex = currentSpineIndex;
       cachedChapterTotalPageCount = section->estimatedTotalPages();
+      pendingPaginationReposition = true;
       nextPageNumber = section->currentPage;
     }
     if (orientationChanged) {
@@ -1202,6 +1205,7 @@ void EpubReaderActivity::applyOrientation(const uint8_t orientation) {
     if (section) {
       cachedSpineIndex = currentSpineIndex;
       cachedChapterTotalPageCount = section->estimatedTotalPages();
+      pendingPaginationReposition = true;
       nextPageNumber = section->currentPage;
     }
 
@@ -1236,6 +1240,7 @@ void EpubReaderActivity::toggleAutoPageTurn(const uint8_t selectedPageTurnOption
     if (section) {
       cachedSpineIndex = currentSpineIndex;
       cachedChapterTotalPageCount = section->estimatedTotalPages();
+      pendingPaginationReposition = true;
       nextPageNumber = section->currentPage;
     }
     section.reset();
@@ -1468,6 +1473,7 @@ void EpubReaderActivity::render(RenderLock&& lock) {
     } else if (cacheComplete) {
       LOG_DBG("ERS", "Finalized cache found, skipping build");
       cachedChapterTotalPageCount = 0;
+      pendingPaginationReposition = false;
     } else if (cacheLoaded) {
       LOG_DBG("ERS", "Partial cache covers landing page; extension deferred");
     }
