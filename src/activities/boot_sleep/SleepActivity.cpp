@@ -19,6 +19,7 @@
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
 #include "ReadingStatsStore.h"
+#include "SdCardFontGlobals.h"
 #include "activities/reader/ReaderUtils.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
@@ -429,7 +430,28 @@ struct BitmapPlacement {
 struct CustomSleepImage {
   std::string path;
   bool isPng = false;
+  uint16_t index = UINT16_MAX;
 };
+
+void commitCustomSleepImage(const CustomSleepImage& selected) {
+  if (selected.index == UINT16_MAX) {
+    return;
+  }
+  APP_STATE.pushRecentSleep(selected.index);
+  APP_STATE.saveToFile();
+}
+
+void releasePngSleepMemory(GfxRenderer& renderer, const bool releaseReadingStats) {
+  // Sleep never returns to the current process, so reader-only SD-font state
+  // can be discarded instead of merely trimming its caches. PNGdec still needs
+  // a large contiguous decoder block plus separately allocated scanline storage.
+  if (Storage.ready()) {
+    sdFontSystem.releaseForNetwork(renderer);
+  }
+  if (releaseReadingStats && !READING_STATS.releaseMemoryForNetwork()) {
+    LOG_ERR("SLP", "Failed to release reading stats before PNG sleep image");
+  }
+}
 
 BitmapPlacement getBitmapPlacement(const Bitmap& bitmap, const Rect& target, const bool crop) {
   BitmapPlacement placement;
@@ -526,6 +548,10 @@ bool selectConfiguredCustomSleepImage(CustomSleepImage& selected) {
   }
 
   std::vector<std::string> files;
+  // Most sleep collections are small; reserving 64 entries covers this common
+  // case (including the reported 35-image folder) without repeated vector
+  // growth and heap holes immediately before the PNG decoder allocation.
+  files.reserve(64);
   char name[500];
   for (auto file = dir.openNextFile(); file; file = dir.openNextFile()) {
     if (file.isDirectory()) {
@@ -576,18 +602,16 @@ bool selectConfiguredCustomSleepImage(CustomSleepImage& selected) {
     }
   } else {
     const uint16_t fileCount = static_cast<uint16_t>(std::min(numFiles, static_cast<size_t>(UINT16_MAX)));
-    const uint8_t window =
-        static_cast<uint8_t>(std::min(static_cast<size_t>(APP_STATE.recentSleepFill), numFiles - 1));
+    const uint8_t window = static_cast<uint8_t>(std::min(static_cast<size_t>(APP_STATE.recentSleepFill), numFiles - 1));
     fileIndex = static_cast<uint16_t>(random(fileCount));
     for (uint8_t attempt = 0; attempt < 20 && APP_STATE.isRecentSleep(fileIndex, window); attempt++) {
       fileIndex = static_cast<uint16_t>(random(fileCount));
     }
   }
 
-  APP_STATE.pushRecentSleep(fileIndex);
-  APP_STATE.saveToFile();
   selected.path = sleepDir + "/" + files[static_cast<size_t>(fileIndex)];
   selected.isPng = FsHelpers::hasPngExtension(files[static_cast<size_t>(fileIndex)]);
+  selected.index = fileIndex;
   return !selected.path.empty();
 }
 
@@ -706,10 +730,18 @@ void SleepActivity::onEnter() {
 }
 
 void SleepActivity::renderCustomSleepScreen() const {
+  // Free reader-owned global memory before enumerating the custom directory;
+  // otherwise the directory strings and state serialization can fragment the
+  // contiguous block PNGdec needs after leaving a book.
+  releasePngSleepMemory(renderer, true);
+
   CustomSleepImage selected;
   if (selectConfiguredCustomSleepImage(selected)) {
     if (selected.isPng) {
+      GUI.drawPopup(renderer, tr(STR_ENTERING_SLEEP));
+      delay(100);
       if (renderPngSleepScreen(selected.path)) {
+        commitCustomSleepImage(selected);
         return;
       }
     } else {
@@ -717,6 +749,7 @@ void SleepActivity::renderCustomSleepScreen() const {
       FsFile file;
       if (SleepScreenCache::load(renderer, selected.path)) {
         displaySleepBuffer(renderer);
+        commitCustomSleepImage(selected);
         return;
       }
       if (Storage.openFileForRead("SLP", selected.path, file)) {
@@ -726,6 +759,7 @@ void SleepActivity::renderCustomSleepScreen() const {
         if (bitmap.parseHeaders() == BmpReaderError::Ok) {
           renderBitmapSleepScreen(bitmap, selected.path);
           file.close();
+          commitCustomSleepImage(selected);
           return;
         }
         file.close();
@@ -850,6 +884,7 @@ bool SleepActivity::renderPngSleepScreen(const std::string& sourcePath) const {
   const auto pageWidth = renderer.getScreenWidth();
   const auto pageHeight = renderer.getScreenHeight();
 
+  releasePngSleepMemory(renderer, true);
   if (!PngSleepRenderer::drawTransparentPng(sourcePath, renderer, 0, 0, pageWidth, pageHeight)) {
     return false;
   }
@@ -1052,13 +1087,18 @@ void SleepActivity::renderCustomStatsSleepScreen(bool footerOnly) const {
   if (selectConfiguredCustomSleepImage(selected)) {
     if (selected.isPng) {
       renderer.clearScreen();
+      releasePngSleepMemory(renderer, false);
       if (drawPngSleepBackground(renderer, selected.path)) {
         drawCoverStatsPanel(renderer, statsPanel, book, footerOnly);
         displaySleepBuffer(renderer);
+        commitCustomSleepImage(selected);
         return;
       }
-    } else if (renderBitmapStatsSleepScreen(renderer, selected.path, statsPanel, book, footerOnly)) {
-      return;
+    } else {
+      if (renderBitmapStatsSleepScreen(renderer, selected.path, statsPanel, book, footerOnly)) {
+        commitCustomSleepImage(selected);
+        return;
+      }
     }
   }
 

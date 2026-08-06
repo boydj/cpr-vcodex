@@ -338,13 +338,13 @@ void EpubReaderActivity::onExit() {
   renderer.setOrientation(GfxRenderer::Orientation::Portrait);
 
   APP_STATE.readerActivityLoadCount = 0;
-  APP_STATE.saveToFile();
   READING_STATS.endSession();
   ACHIEVEMENTS.recordSessionEnded(READING_STATS.getLastSessionSnapshot());
   bookmarkStore.save();
   invalidateCurrentOverlayPageCache();
   section.reset();
   epub.reset();
+  APP_STATE.saveToFile();
 }
 
 ReaderRenderSpec EpubReaderActivity::makeRenderSpec(const uint16_t viewportWidth, const uint16_t viewportHeight) const {
