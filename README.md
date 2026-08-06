@@ -50,12 +50,12 @@ The philosophy of this fork is simple: keep the firmware fast, stable, and focus
 |---|---|
 | Project | `CPR-vCodex` |
 | Device | `Xteink X4`; `Xteink X3` compatibility reported by users, not personally tested |
-| Current release (CPR-vCodex) build | [`1.5.0.8-cpr-vcodex`](https://github.com/franssjz/cpr-vcodex/releases/tag/1.5.0.8-cpr-vcodex) |
+| Current release (CPR-vCodex) build | [`1.5.0.9-cpr-vcodex`](https://github.com/franssjz/cpr-vcodex/releases/tag/1.5.0.9-cpr-vcodex) |
 | Latest SD font package | [`sd-fonts-m1-b4`](https://github.com/franssjz/cpr-vcodex/releases/tag/sd-fonts-m1-b4) |
 | Changelog | [CHANGELOG.md](./CHANGELOG.md) |
 | Current release sync | Selected CrossPoint Reader 1.5 EPUB indexing and memory work through [`f0a50557`](https://github.com/crosspoint-reader/crosspoint-reader/commit/f0a50557), plus targeted long-text and HTML line-break fixes from [`97ee05a4`](https://github.com/crosspoint-reader/crosspoint-reader/commit/97ee05a40c3ff48b14f392e197b0e5bb4e161890) and [`b508f75e`](https://github.com/crosspoint-reader/crosspoint-reader/commit/b508f75e79c6b9e692c72b7322034bab3ac6d972), manually adapted to retain the vCodex band renderer, KOReader profiles, reading statistics, highlights, themes, ruby, and SD-card fonts; `open-x4-sdk` remains at [`198ad26`](https://github.com/crosspoint-reader/community-sdk/commit/198ad267219c25c8ab84418b806c66f1fb5216a3). |
-| Current release focus | Restores custom PNG sleep images when sleep is entered from an open book, including memory-constrained reader states. |
-| Latest release notes | - PNGdec now allocates its decoder and scanline storage separately, avoiding the contiguous 59 KB block that was unavailable after reading.<br>- Reader-only caches are released before sleep-image selection and state persistence is deferred until after rendering.<br>- PNG sleep uses the same visible `Entering sleep` transition and successful-image sequencing as BMP. |
+| Current release focus | Completes transparent custom PNG sleep transitions by removing the temporary popup while retaining the reader or Home screen beneath the PNG. |
+| Latest release notes | - The `Entering sleep` popup is shown briefly, then only its framebuffer region is restored before PNG composition.<br>- Transparent PNG pixels continue to reveal the previous reader or Home screen.<br>- The final fix is isolated to the sleep transition and leaves Home, recent-books storage, and UI theme classes unchanged. |
 | Base firmware line | `CrossPoint Reader 1.5.0` |
 | Latest official commit reviewed | [`f0a50557`](https://github.com/crosspoint-reader/crosspoint-reader/commit/f0a50557) |
 | Latest official commit incorporated | Selected EPUB/rendering, cache, Wi-Fi, web, media, completion, KOReader Sync, ruby, and progressive-indexing changes from [`67936cb3`](https://github.com/crosspoint-reader/crosspoint-reader/commit/67936cb3) through [`f0a50557`](https://github.com/crosspoint-reader/crosspoint-reader/commit/f0a50557); larger upstream settings, UI, persistence, touch, RTL, OTA, and hardware rewrites remain intentionally deferred. |
