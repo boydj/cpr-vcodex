@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -453,6 +454,45 @@ void releasePngSleepMemory(GfxRenderer& renderer, const bool releaseReadingStats
   }
 }
 
+void showRestorableSleepPopup(GfxRenderer& renderer) {
+  // Every currently selectable UI theme derives its popup layout from LyraTheme.
+  // Keep this calculation local to sleep so the theme hierarchy and Home rendering
+  // remain completely untouched by the PNG transition.
+  constexpr int marginX = 16;
+  constexpr int marginY = 12;
+  constexpr int outline = 2;
+  const char* message = tr(STR_ENTERING_SLEEP);
+  const int textWidth = renderer.getTextWidth(UI_12_FONT_ID, message, EpdFontFamily::REGULAR);
+  const int textHeight = renderer.getLineHeight(UI_12_FONT_ID);
+  const int width = textWidth + marginX * 2;
+  const int height = textHeight + marginY * 2;
+  const Rect popup{(renderer.getScreenWidth() - width) / 2, static_cast<int>(renderer.getScreenHeight() * 0.165f),
+                   width, height};
+  const Rect saved{popup.x - outline, popup.y - outline, popup.width + outline * 2, popup.height + outline * 2};
+  const size_t savedSize = renderer.getRegionByteSize(saved.x, saved.y, saved.width, saved.height);
+  if (savedSize == 0) {
+    return;
+  }
+
+  uint8_t* savedPixels = static_cast<uint8_t*>(malloc(savedSize));
+  if (!savedPixels) {
+    LOG_ERR("SLP", "Skipping sleep popup: could not allocate %u-byte background", static_cast<unsigned>(savedSize));
+    return;
+  }
+  if (!renderer.copyRegionToBuffer(saved.x, saved.y, saved.width, saved.height, savedPixels, savedSize)) {
+    LOG_ERR("SLP", "Skipping sleep popup: could not save background");
+    free(savedPixels);
+    return;
+  }
+
+  GUI.drawPopup(renderer, message);
+  delay(100);
+  if (!renderer.copyBufferToRegion(saved.x, saved.y, saved.width, saved.height, savedPixels, savedSize)) {
+    LOG_ERR("SLP", "Could not restore background after sleep popup");
+  }
+  free(savedPixels);
+}
+
 BitmapPlacement getBitmapPlacement(const Bitmap& bitmap, const Rect& target, const bool crop) {
   BitmapPlacement placement;
   placement.x = target.x;
@@ -738,8 +778,7 @@ void SleepActivity::renderCustomSleepScreen() const {
   CustomSleepImage selected;
   if (selectConfiguredCustomSleepImage(selected)) {
     if (selected.isPng) {
-      GUI.drawPopup(renderer, tr(STR_ENTERING_SLEEP));
-      delay(100);
+      showRestorableSleepPopup(renderer);
       if (renderPngSleepScreen(selected.path)) {
         commitCustomSleepImage(selected);
         return;
