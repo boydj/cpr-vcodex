@@ -319,6 +319,9 @@ void setup() {
   t1 = millis();
 
   HalSystem::begin();
+  // checkPanic() consumes the watchdog capture marker after a successful SD
+  // dump, so keep the boot classification for the later route decision.
+  const bool rebootedFromPanic = HalSystem::isRebootFromPanic();
 
   const bool isSilentReboot = (silentRebootMagic == SILENT_REBOOT_MAGIC);
   const uint32_t snapshotTarget =
@@ -495,7 +498,7 @@ void setup() {
   const uint8_t syncDayReminderThreshold = SETTINGS.getEffectiveSyncDayReminderStartThreshold();
   BootRecovery::enterStage(BootRecovery::BootStage::RouteDecision);
 
-  if (HalSystem::isRebootFromPanic() && !forceHomeBoot) {
+  if (rebootedFromPanic && !forceHomeBoot) {
     // If we rebooted from a panic, go to crash report screen to show the panic info
     activityManager.goToCrashReport();
   } else if (isSilentReboot && snapshotTarget == SILENT_REBOOT_TARGET_READER && !APP_STATE.openEpubPath.empty()) {
@@ -622,8 +625,10 @@ void loop() {
   if (SETTINGS.shortPwrBtn == CrossPointSettings::SHORT_PWRBTN::FORCE_REFRESH &&
       mappedInputManager.wasReleased(MappedInputManager::Button::Power)) {
     LOG_DBG("MAIN", "Manual screen refresh triggered");
-    RenderLock lock;
-    renderer.displayBuffer(HalDisplay::HALF_REFRESH);
+    if (!activityManager.handleForcedRefresh()) {
+      RenderLock lock;
+      renderer.displayBuffer(HalDisplay::HALF_REFRESH);
+    }
   }
 
   // Refresh the battery icon when USB is plugged or unplugged.

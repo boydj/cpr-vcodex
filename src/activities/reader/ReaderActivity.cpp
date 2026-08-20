@@ -113,7 +113,10 @@ void ReaderActivity::onGoToEpubReader(std::unique_ptr<Epub> epub) {
 
   activityManager.replaceActivity(std::make_unique<EpubReaderActivity>(
       renderer, mappedInput, std::move(epub), initialBookmark.enabled ? initialBookmark.spineIndex : -1,
-      initialBookmark.enabled ? static_cast<int>(initialBookmark.page) : -1));
+      initialBookmark.enabled ? static_cast<int>(initialBookmark.page) : -1,
+      initialBookmark.enabled && initialBookmark.hasVisibleTextOffset
+          ? std::optional<uint32_t>(initialBookmark.visibleTextOffset)
+          : std::nullopt));
 }
 
 void ReaderActivity::onGoToBmpViewer(const std::string& path) {

@@ -308,6 +308,7 @@ void EpubReaderActivity::onEnter() {
     const int maxSpineIndex = std::max(0, epub->getSpineItemsCount() - 1);
     currentSpineIndex = std::min(initialBookmarkSpineIndex, maxSpineIndex);
     nextPageNumber = std::max(0, initialBookmarkPage);
+    pendingVisibleTextOffset = initialBookmarkVisibleTextOffset;
     cachedSpineIndex = currentSpineIndex;
     cachedChapterTotalPageCount = 0;
   }
@@ -378,9 +379,13 @@ bool EpubReaderActivity::applyDeferredReposition() {
     changed = newPage != section->currentPage;
     section->currentPage = newPage;
   }
+  clearDeferredReposition();
+  return changed;
+}
+
+void EpubReaderActivity::clearDeferredReposition() {
   cachedChapterTotalPageCount = 0;
   pendingPaginationReposition = false;
-  return changed;
 }
 
 void EpubReaderActivity::loop() {
@@ -493,9 +498,10 @@ void EpubReaderActivity::loop() {
       READING_STATS.noteActivity();
       const uint16_t spineIndex = static_cast<uint16_t>(currentSpineIndex);
       const uint16_t pageNumber = static_cast<uint16_t>(section->currentPage);
-      const bool wasBookmarked = bookmarkStore.has(spineIndex, pageNumber);
+      const auto visibleOffset = section->getVisibleTextOffsetForPage(pageNumber);
+      const bool wasBookmarked = bookmarkStore.has(spineIndex, pageNumber, visibleOffset);
       const std::string snippet = wasBookmarked ? "" : extractBookmarkSnippet(*section);
-      const bool addedBookmark = bookmarkStore.toggle(spineIndex, pageNumber, snippet);
+      const bool addedBookmark = bookmarkStore.toggle(spineIndex, pageNumber, snippet, visibleOffset);
       bookmarkStore.save();
       if (addedBookmark && epub && !READING_STATS.shouldIgnorePath(epub->getPath())) {
         ACHIEVEMENTS.recordBookmarkAdded();
@@ -748,7 +754,8 @@ void EpubReaderActivity::saveCurrentPageBookmark() {
 
   const uint16_t spineIndex = static_cast<uint16_t>(currentSpineIndex);
   const uint16_t pageNumber = static_cast<uint16_t>(section->currentPage);
-  if (bookmarkStore.has(spineIndex, pageNumber)) {
+  const auto visibleOffset = section->getVisibleTextOffsetForPage(pageNumber);
+  if (bookmarkStore.has(spineIndex, pageNumber, visibleOffset)) {
     GUI.drawPopup(renderer, tr(STR_PAGE_MARK_ALREADY_SAVED));
     renderer.displayBuffer();
     delay(500);
@@ -757,7 +764,7 @@ void EpubReaderActivity::saveCurrentPageBookmark() {
   }
 
   const std::string snippet = extractBookmarkSnippet(*section);
-  const bool addedBookmark = bookmarkStore.toggle(spineIndex, pageNumber, snippet);
+  const bool addedBookmark = bookmarkStore.toggle(spineIndex, pageNumber, snippet, visibleOffset);
   bookmarkStore.save();
   if (addedBookmark && epub && !READING_STATS.shouldIgnorePath(epub->getPath())) {
     ACHIEVEMENTS.recordBookmarkAdded();
@@ -778,6 +785,7 @@ void EpubReaderActivity::jumpToPercent(int percent) {
   if (!epub) {
     return;
   }
+  clearDeferredReposition();
 
   // BookMetadataCache uses one seek-based file handle for spine lookups. Keep
   // the complete calculation serialized with render/status-bar metadata reads.
@@ -946,6 +954,7 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
               const auto& chapterResult = std::get<ChapterResult>(result.data);
               RenderLock lock(*this);
 
+              clearDeferredReposition();
               currentSpineIndex = chapterResult.spineIndex;
 
               // If anchor is not empty, it will be used later to calculate the page number.
@@ -1035,13 +1044,31 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
             READING_STATS.resumeSession();
             if (!result.isCancelled) {
               const auto& bookmark = std::get<BookmarkResult>(result.data);
-              if (currentSpineIndex != bookmark.spineIndex || !section ||
+              const bool needsAnchorJump = bookmark.hasVisibleTextOffset;
+              if (needsAnchorJump && currentSpineIndex == bookmark.spineIndex && section) {
+                RenderLock lock(*this);
+                if (const auto page = section->getPageForVisibleTextOffset(bookmark.visibleTextOffset)) {
+                  clearDeferredReposition();
+                  section->currentPage = *page;
+                  nextPageNumber = *page;
+                  sessionProgressTouched = true;
+                  invalidateCurrentOverlayPageCache();
+                  requestUpdate();
+                  return;
+                }
+              }
+              if (needsAnchorJump || currentSpineIndex != bookmark.spineIndex || !section ||
                   section->currentPage != static_cast<int>(bookmark.page)) {
                 RenderLock lock(*this);
+                clearDeferredReposition();
                 currentSpineIndex = bookmark.spineIndex;
                 nextPageNumber = static_cast<int>(bookmark.page);
+                pendingVisibleTextOffset = needsAnchorJump
+                                               ? std::optional<uint32_t>(bookmark.visibleTextOffset)
+                                               : std::nullopt;
                 sessionProgressTouched = true;
                 section.reset();
+                requestUpdate();
               }
             }
           });
@@ -1062,17 +1089,18 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
       }
       const uint16_t selectionSpine = static_cast<uint16_t>(currentSpineIndex);
       const uint16_t selectionPage = static_cast<uint16_t>(section->currentPage);
+      const uint32_t selectionVisibleOffset = page->visibleTextOffset;
       READING_STATS.noteActivity();
       startActivityForResult(
           std::make_unique<DictionaryWordSelectActivity>(renderer, mappedInput, page, SETTINGS.getReaderFontId(),
                                                          overlayMarginLeft, overlayMarginTop, true),
-          [this, selectionSpine, selectionPage](const ActivityResult& result) {
+          [this, selectionSpine, selectionPage, selectionVisibleOffset](const ActivityResult& result) {
             READING_STATS.resumeSession();
             if (!result.isCancelled) {
               const auto& highlight = std::get<HighlightResult>(result.data);
               const bool saved =
                   bookmarkStore.addTextHighlight(selectionSpine, selectionPage, selectionPage, highlight.startWordIndex,
-                                                 highlight.endWordIndex, highlight.text);
+                                                 highlight.endWordIndex, highlight.text, selectionVisibleOffset);
               if (saved) {
                 bookmarkStore.save();
                 if (epub && !READING_STATS.shouldIgnorePath(epub->getPath())) {
@@ -1321,6 +1349,9 @@ void EpubReaderActivity::pageTurn(bool isForwardTurn) {
   }
 
   READING_STATS.noteActivity();
+  // Once the user turns a page, that position is authoritative. Do not let a
+  // delayed pagination completion restore the session-start page afterward.
+  clearDeferredReposition();
   invalidateCurrentOverlayPageCache();
   const int oldSpineIndex = currentSpineIndex;
   const int oldPage = section ? section->currentPage : nextPageNumber;
@@ -1421,8 +1452,10 @@ void EpubReaderActivity::render(RenderLock&& lock) {
     const int targetPage =
         pendingPageJump.has_value() ? static_cast<int>(*pendingPageJump) : std::max(nextPageNumber, 0);
     const bool targetAlreadyAvailable = cacheLoaded && targetPage < static_cast<int>(section->pageCount);
-    const bool needsLookup = !pendingAnchor.empty() || pendingParagraphLookup || pendingListItemLookup;
+    const bool needsLookup = pendingVisibleTextOffset.has_value() || !pendingAnchor.empty() || pendingParagraphLookup ||
+                             pendingListItemLookup;
     const bool lookupAlreadyAvailable =
+        (pendingVisibleTextOffset && section->getPageForVisibleTextOffset(*pendingVisibleTextOffset).has_value()) ||
         (!pendingAnchor.empty() && section->findAnchor(pendingAnchor).has_value()) ||
         (pendingListItemLookup && section->getPageForListItemIndex(pendingListItemIndex).has_value()) ||
         (pendingParagraphLookup && section->getPageForParagraphIndex(pendingParagraphIndex).has_value());
@@ -1450,6 +1483,7 @@ void EpubReaderActivity::render(RenderLock&& lock) {
       }
 
       const auto lookupResolved = [this]() {
+        if (pendingVisibleTextOffset && section->getPageForVisibleTextOffset(*pendingVisibleTextOffset)) return true;
         if (!pendingAnchor.empty() && section->findAnchor(pendingAnchor)) return true;
         if (pendingListItemLookup && section->getPageForListItemIndex(pendingListItemIndex)) return true;
         if (pendingParagraphLookup && section->getPageForParagraphIndex(pendingParagraphIndex)) return true;
@@ -1507,6 +1541,18 @@ void EpubReaderActivity::render(RenderLock&& lock) {
         LOG_DBG("ERS", "Anchor '%s' not found in section %d", pendingAnchor.c_str(), currentSpineIndex);
       }
       pendingAnchor.clear();
+    }
+
+    if (pendingVisibleTextOffset) {
+      if (const auto page = section->getPageForVisibleTextOffset(*pendingVisibleTextOffset)) {
+        section->currentPage = *page;
+        LOG_DBG("ERS", "Resolved visible text offset %lu to page %u",
+                static_cast<unsigned long>(*pendingVisibleTextOffset), *page);
+      } else {
+        LOG_DBG("ERS", "Visible text offset %lu not found in section %d; using saved page",
+                static_cast<unsigned long>(*pendingVisibleTextOffset), currentSpineIndex);
+      }
+      pendingVisibleTextOffset.reset();
     }
 
     bool resolvedSyncLut = false;
@@ -1720,8 +1766,13 @@ void EpubReaderActivity::drawTextHighlights(const Page& page, const int oriented
         highlight.snippet.empty()) {
       continue;
     }
-    if (currentPage + 3 < highlight.pageNumber || currentPage > static_cast<int>(highlight.endPageNumber) + 3) {
-      continue;
+    if (highlight.hasVisibleTextOffset) {
+      const auto anchoredPage = section->getPageForVisibleTextOffset(highlight.visibleTextOffset);
+      if (!anchoredPage || currentPage != static_cast<int>(*anchoredPage)) continue;
+    } else {
+      if (currentPage + 3 < highlight.pageNumber || currentPage > static_cast<int>(highlight.endPageNumber) + 3) {
+        continue;
+      }
     }
 
     size_t bestStart = wordCount;
@@ -1837,6 +1888,12 @@ void EpubReaderActivity::renderContents(std::shared_ptr<Page> page, const int or
     // Step 2: Re-render with images and display again (images appear clean)
     int16_t imgX, imgY, imgW, imgH;
     if (page->getImageBoundingBox(imgX, imgY, imgW, imgH)) {
+      // The first page starts with a zero refresh counter. Give image pages
+      // the same clean base as the normal cadence before their double-FAST
+      // pipeline, especially after returning from KOSync (upstream dadc8ec2).
+      if (pagesUntilFullRefresh <= 1) {
+        renderer.displayBuffer(HalDisplay::HALF_REFRESH);
+      }
       renderer.fillRect(imgX + orientedMarginLeft, imgY + orientedMarginTop, imgW, imgH, false);
       renderer.displayBuffer(HalDisplay::FAST_REFRESH);
 
@@ -2050,6 +2107,7 @@ void EpubReaderActivity::navigateToHref(const std::string& hrefStr, const bool s
 
   {
     RenderLock lock(*this);
+    clearDeferredReposition();
     pendingAnchor = std::move(anchor);
     currentSpineIndex = targetSpineIndex;
     nextPageNumber = 0;
@@ -2067,6 +2125,7 @@ void EpubReaderActivity::restoreSavedPosition() {
 
   {
     RenderLock lock(*this);
+    clearDeferredReposition();
     currentSpineIndex = pos.spineIndex;
     nextPageNumber = pos.pageNumber;
     section.reset();

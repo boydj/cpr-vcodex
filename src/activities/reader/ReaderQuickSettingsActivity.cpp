@@ -49,7 +49,7 @@ const std::vector<ReaderQuickSettingsActivity::QuickSetting>& ReaderQuickSetting
       {StrId::STR_LINE_SPACING,
        QuickSettingType::Enum,
        &CrossPointSettings::lineSpacing,
-       {StrId::STR_TIGHT, StrId::STR_NORMAL, StrId::STR_WIDE}},
+       {StrId::STR_TIGHT, StrId::STR_NORMAL, StrId::STR_WIDE, StrId::STR_EXTRA_WIDE}},
       {StrId::STR_SCREEN_MARGIN, QuickSettingType::Value, &CrossPointSettings::screenMargin, {}, {5, 40, 5}},
       {StrId::STR_PARA_ALIGNMENT,
        QuickSettingType::Enum,

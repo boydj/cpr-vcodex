@@ -207,12 +207,10 @@ void TextBlock::render(const GfxRenderer& renderer, const int fontId, const int 
   const int ascender = renderer.getFontAscenderSize(fontId);
   const int rubyShift = getRubyShift(ascender);
   size_t rubyGroupEnd = 0;
-  int rubyGroupBaseShift = 0;
   for (uint16_t i = 0; i < numWords; i++) {
     int rubyX = 0;
     if (i >= rubyGroupEnd) {
       rubyGroupEnd = i;
-      rubyGroupBaseShift = 0;
       if (rubyText(i)[0] != '\0' && (wordStyle(i) & EpdFontFamily::RUBY_CONTINUE) == 0) {
         size_t count = 1;
         int baseWidth = renderer.getTextAdvanceX(fontId, wordText(i), wordStyle(i));
@@ -221,14 +219,13 @@ void TextBlock::render(const GfxRenderer& renderer, const int fontId, const int 
           ++count;
         }
         const int rubyWidth = renderer.getTextAdvanceX(fontId, rubyText(i), EpdFontFamily::SUP);
-        rubyGroupBaseShift = std::max(0, rubyWidth - baseWidth) / 2;
         rubyGroupEnd = i + count;
-        rubyX = wordXpos(i) + x + (rubyWidth < baseWidth ? (baseWidth - rubyWidth) / 2 : 0);
+        rubyX = wordXpos(i) + x - (rubyWidth - baseWidth) / 2;
         rubyX = std::max(0, std::min(rubyX, renderer.getScreenWidth() - rubyWidth));
       }
     }
 
-    const int wordX = wordXpos(i) + x + rubyGroupBaseShift;
+    const int wordX = wordXpos(i) + x;
     const EpdFontFamily::Style currentStyle = wordStyle(i);
     const char* w = wordText(i);
     const size_t wLen = wordTextLen(i);

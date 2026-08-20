@@ -52,6 +52,7 @@ class SdCardFontSystem {
   }
 
  private:
+  void setupUiFallbacks(GfxRenderer& renderer);
   SdCardFontRegistry registry_;
   SdCardFontManager manager_;
   std::atomic<bool> registryDirty_{false};

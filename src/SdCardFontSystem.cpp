@@ -3,7 +3,18 @@
 #include <GfxRenderer.h>
 #include <Logging.h>
 
+#include <algorithm>
+
 #include "CrossPointSettings.h"
+#include "fontIds.h"
+
+namespace {
+struct UiFontSize {
+  int fontId;
+  uint8_t pointSize;
+};
+constexpr UiFontSize UI_FONT_SIZES[] = {{SMALL_FONT_ID, 8}, {UI_10_FONT_ID, 10}, {UI_12_FONT_ID, 12}};
+}  // namespace
 
 static uint8_t fontSizeEnumFromSettings() {
   uint8_t e = SETTINGS.fontSize;
@@ -27,6 +38,7 @@ void SdCardFontSystem::begin(GfxRenderer& renderer) {
     const auto* family = registry_.findFamily(SETTINGS.sdFontFamilyName);
     if (family) {
       if (manager_.loadFamily(*family, renderer, fontSizeEnumFromSettings())) {
+        setupUiFallbacks(renderer);
         LOG_DBG("SDFS", "Loaded SD card font family: %s", SETTINGS.sdFontFamilyName);
       } else {
         LOG_ERR("SDFS", "Failed to load SD font family: %s (clearing)", SETTINGS.sdFontFamilyName);
@@ -77,9 +89,10 @@ void SdCardFontSystem::ensureLoaded(GfxRenderer& renderer) {
       return;
     }
     auto sizes = family->availableSizes();
-    uint8_t idx = sizeEnum;
-    if (idx >= sizes.size()) idx = sizes.size() - 1;
-    uint8_t wantedPt = sizes.empty() ? 0 : sizes[idx];
+    const uint8_t idx = std::min<uint8_t>(sizeEnum, 3);
+    const bool standardSizes = family->hasSize(12) && family->hasSize(14) && family->hasSize(16) && family->hasSize(18);
+    const uint8_t readerTargets[] = {12, 14, 16, 18};
+    uint8_t wantedPt = sizes.empty() ? 0 : (standardSizes ? readerTargets[idx] : sizes[std::min<size_t>(idx, sizes.size() - 1)]);
     if (!registryWasDirty && !registryWasReleased && wantedPt == manager_.currentPointSize()) return;
     const char* reason = registryWasDirty ? " [registry dirty]" : (registryWasReleased ? " [network restore]" : "");
     LOG_DBG("SDFS", "Reloading %s: size %u -> %u (enum %u)%s", wantedFamily, manager_.currentPointSize(), wantedPt,
@@ -93,6 +106,7 @@ void SdCardFontSystem::ensureLoaded(GfxRenderer& renderer) {
   const auto* family = registry_.findFamily(wantedFamily);
   if (family) {
     if (manager_.loadFamily(*family, renderer, sizeEnum)) {
+      setupUiFallbacks(renderer);
       LOG_DBG("SDFS", "Loaded SD font family: %s", wantedFamily);
     } else {
       LOG_ERR("SDFS", "Failed to load SD font family: %s (clearing)", wantedFamily);
@@ -101,6 +115,23 @@ void SdCardFontSystem::ensureLoaded(GfxRenderer& renderer) {
   } else {
     LOG_DBG("SDFS", "SD font family not found: %s (clearing)", wantedFamily);
     SETTINGS.sdFontFamilyName[0] = '\0';
+  }
+}
+
+void SdCardFontSystem::setupUiFallbacks(GfxRenderer& renderer) {
+  const std::string& familyName = manager_.currentFamilyName();
+  const auto* family = registry_.findFamily(familyName);
+  const auto reader = renderer.getFontMap().find(manager_.getFontId(familyName));
+  if (!family || reader == renderer.getFontMap().end()) return;
+
+  static constexpr uint32_t CJK_PROBES[] = {0x4E00, 0x3042, 0x30A2, 0xAC00};
+  bool hasCjk = false;
+  for (const uint32_t cp : CJK_PROBES) hasCjk = hasCjk || reader->second.hasCodepoint(cp);
+  if (!hasCjk) return;
+
+  for (const auto& ui : UI_FONT_SIZES) {
+    const int fallbackId = manager_.loadFamilyExtraSize(*family, renderer, ui.pointSize);
+    if (fallbackId) renderer.setFallbackFont(ui.fontId, fallbackId);
   }
 }
 

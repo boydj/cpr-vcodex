@@ -377,20 +377,35 @@ void TxtReaderActivity::loop() {
     firstConfirmClickMs = 0UL;
   }
 
-  if (prevTriggered && currentPage > 0) {
-    READING_STATS.noteActivity();
-    currentPage--;
-    requestUpdate();
-  } else if (nextTriggered) {
-    if (currentPage < totalPages - 1) {
+  if (prevTriggered) {
+    if (skipPages(-1)) {
       READING_STATS.noteActivity();
-      currentPage++;
       requestUpdate();
-    } else {
+    }
+  } else if (nextTriggered) {
+    if (skipPages(1) && !isAtEndOfBook()) {
+      READING_STATS.noteActivity();
+      requestUpdate();
+    } else if (isAtEndOfBook()) {
+      READING_STATS.noteActivity();
       READING_STATS.updateProgress(100, true, "", 100);
       exitReaderAfterOptionalCompletedMove();
     }
   }
+}
+
+bool TxtReaderActivity::skipPages(const int amount) {
+  if (!initialized) return false;
+
+  int newPage = currentPage + amount;
+  if (newPage < 0) newPage = 0;
+  // totalPages is an intentional end-of-book sentinel. Keep it reachable so
+  // multi-page skips and ordinary forward turns share the same completion path.
+  if (newPage > totalPages) newPage = totalPages;
+  if (newPage == currentPage) return false;
+
+  currentPage = newPage;
+  return true;
 }
 
 void TxtReaderActivity::requestCurrentPageFullRefresh() {

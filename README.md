@@ -32,11 +32,12 @@ Some of the main additions include:
 - StarDict dictionary support from the SD card, with selectable monolingual and translation dictionaries, per-language folders, reader word lookup, suggestions, and lookup history
 - offline Flashcards with CSV decks, multiple study modes, recents, stats, and session summaries
 - unified EPUB Highlights for selected text and saved pages, with a global Highlights app and backward-compatible bookmark storage
+- repagination-resistant EPUB page marks and highlights, stored with visible-text anchors in BookmarkStore v5 while retaining v1-v4 migration
 - customizable Home and Apps shortcuts, reader quick settings, reading layouts, themes, and Lyra Carousel workflow improvements
 - enhanced sleep tools, including custom image directories, cover/custom stats screens, sleep previews, cached sleep frames, and configurable clean sleep refresh
 - downloadable and manually installable SD-card fonts, including vCodex families such as `ChareInk` and `Lexend`
 - improved EPUB image handling for packed low-depth PNGs, scaled images and SVG image references, with low-memory band rendering and decode placeholders
-- native EPUB ruby annotations for Chinese/Japanese reading aids, plus next-book suggestions when a book is completed
+- native EPUB ruby annotations for Chinese/Japanese reading aids, improved CJK line breaking, and SD-font CJK fallback for book lists and chapter titles
 - Screen Clean, SD firmware update, Auto Flash, reading stats editor, and other maintenance/workflow utilities
 - named KOReader Sync profiles with optional metadata, ask/smart synchronization behavior and per-profile account registration
 - OPDS filename options, reader refresh controls, Bionic Reading, text darkness, dark mode, and other reader quality-of-life settings
@@ -50,15 +51,15 @@ The philosophy of this fork is simple: keep the firmware fast, stable, and focus
 |---|---|
 | Project | `CPR-vCodex` |
 | Device | `Xteink X4`; `Xteink X3` compatibility reported by users, not personally tested |
-| Current release (CPR-vCodex) build | [`1.5.0.9-cpr-vcodex`](https://github.com/franssjz/cpr-vcodex/releases/tag/1.5.0.9-cpr-vcodex) |
+| Current release (CPR-vCodex) build | [`1.5.0.17-cpr-vcodex`](https://github.com/franssjz/cpr-vcodex/releases/tag/1.5.0.17-cpr-vcodex) |
 | Latest SD font package | [`sd-fonts-m1-b4`](https://github.com/franssjz/cpr-vcodex/releases/tag/sd-fonts-m1-b4) |
 | Changelog | [CHANGELOG.md](./CHANGELOG.md) |
 | Current release sync | Selected CrossPoint Reader 1.5 EPUB indexing and memory work through [`f0a50557`](https://github.com/crosspoint-reader/crosspoint-reader/commit/f0a50557), plus targeted long-text and HTML line-break fixes from [`97ee05a4`](https://github.com/crosspoint-reader/crosspoint-reader/commit/97ee05a40c3ff48b14f392e197b0e5bb4e161890) and [`b508f75e`](https://github.com/crosspoint-reader/crosspoint-reader/commit/b508f75e79c6b9e692c72b7322034bab3ac6d972), manually adapted to retain the vCodex band renderer, KOReader profiles, reading statistics, highlights, themes, ruby, and SD-card fonts; `open-x4-sdk` remains at [`198ad26`](https://github.com/crosspoint-reader/community-sdk/commit/198ad267219c25c8ab84418b806c66f1fb5216a3). |
 | Current release focus | Completes transparent custom PNG sleep transitions by removing the temporary popup while retaining the reader or Home screen beneath the PNG. |
 | Latest release notes | - The `Entering sleep` popup is shown briefly, then only its framebuffer region is restored before PNG composition.<br>- Transparent PNG pixels continue to reveal the previous reader or Home screen.<br>- The final fix is isolated to the sleep transition and leaves Home, recent-books storage, and UI theme classes unchanged. |
 | Base firmware line | `CrossPoint Reader 1.5.0` |
-| Latest official commit reviewed | [`f0a50557`](https://github.com/crosspoint-reader/crosspoint-reader/commit/f0a50557) |
-| Latest official commit incorporated | Selected EPUB/rendering, cache, Wi-Fi, web, media, completion, KOReader Sync, ruby, and progressive-indexing changes from [`67936cb3`](https://github.com/crosspoint-reader/crosspoint-reader/commit/67936cb3) through [`f0a50557`](https://github.com/crosspoint-reader/crosspoint-reader/commit/f0a50557); larger upstream settings, UI, persistence, touch, RTL, OTA, and hardware rewrites remain intentionally deferred. |
+| Latest official commit reviewed | `master` through [`95a847c7`](https://github.com/crosspoint-reader/crosspoint-reader/commit/95a847c7210a5060cf0bb5a20fbc855869d735f2) and `develop` through [`93d572fc`](https://github.com/crosspoint-reader/crosspoint-reader/commit/93d572fc) |
+| Latest official commit incorporated | The released line includes selected changes from [`67936cb3`](https://github.com/crosspoint-reader/crosspoint-reader/commit/67936cb3) through [`f0a50557`](https://github.com/crosspoint-reader/crosspoint-reader/commit/f0a50557). Current `Unreleased` work additionally adapts isolated safety, EPUB, render, File Browser, KOSync, web, bookmark-anchor, CJK fallback, hyphenation, and line-spacing changes reviewed through `93d572fc`; larger SDK, FUI, settings-persistence, touch, RTL, OTA, sleep, and hardware rewrites remain intentionally deferred. |
 | Intentional upstream exclusions | Unsupported upstream theme variants such as `RoundedRaff` remain out of the supported vCodex theme list; other upstream UI/config changes are adapted selectively to preserve the existing X4 workflow. |
 
 ## Web tools
@@ -129,6 +130,10 @@ If you know reliable public dictionary links for more languages, please contact 
 `CPR-vCodex` supports extra `.cpfont` families stored on the microSD card. The built-in reader fonts still work as usual, and downloaded SD fonts such as Lexend appear in `Settings > Reader > Font Family` after the firmware discovers them.
 
 SD-card font rendering keeps a fast per-glyph advance cache when it is complete, and falls back to direct glyph measurement when an external font cache is missing an entry. Browser File Transfer downloads also preserve the advertised response size so downloaded files do not fail with content-length mismatch errors.
+
+CJK-capable families can also provide 8, 10, and 12 pt files. CPR-vCodex uses those as size-matched fallbacks for Chinese, Japanese, and Korean text in the File Browser, Recent Books, and EPUB chapter list, and preloads each visible screen in one SD pass to avoid per-glyph reads.
+
+The File Transfer EPUB optimizer includes an optional `Remove embedded fonts` advanced setting. It is off by default so the optimized book remains portable to readers that honor publisher fonts; enabling it removes font files, matching OPF/encryption entries, and `@font-face` rules because CPR-vCodex renders with its selected built-in or SD-card font.
 
 Device download:
 
@@ -472,7 +477,9 @@ Supported flow:
 
 Existing `bookmarks.bin` files remain readable. They are upgraded in place only when
 the user next changes the book's Highlights, and all old bookmarks become page-mark
-entries rather than being discarded.
+entries rather than being discarded. Format v5 adds a visible Unicode-codepoint anchor
+to new page marks and text highlights, so reopening them remains tied to the same content
+after changing font size, margins, line spacing, or orientation.
 
 The text-selection and on-page highlighting behavior is adapted from
 [CrossInk](https://github.com/uxjulia/CrossInk) by

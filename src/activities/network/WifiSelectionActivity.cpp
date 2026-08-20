@@ -62,11 +62,16 @@ void WifiSelectionActivity::onEnter() {
   // On ESP32, read the base MAC directly to avoid placeholder values when the
   // WiFi driver has not fully initialized yet.
 #if defined(ESP32) || defined(ARDUINO_ARCH_ESP32)
-  uint8_t baseMac[6];
-  esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
+  uint8_t baseMac[6] = {};
   char macStr[64];
-  snprintf(macStr, sizeof(macStr), "%s %02x-%02x-%02x-%02x-%02x-%02x", tr(STR_MAC_ADDRESS), baseMac[0], baseMac[1],
-           baseMac[2], baseMac[3], baseMac[4], baseMac[5]);
+  const esp_err_t macResult = esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
+  if (macResult == ESP_OK) {
+    snprintf(macStr, sizeof(macStr), "%s %02x-%02x-%02x-%02x-%02x-%02x", tr(STR_MAC_ADDRESS), baseMac[0],
+             baseMac[1], baseMac[2], baseMac[3], baseMac[4], baseMac[5]);
+  } else {
+    LOG_ERR("WIFI", "Failed to read station MAC (err=%d)", static_cast<int>(macResult));
+    snprintf(macStr, sizeof(macStr), "%s --", tr(STR_MAC_ADDRESS));
+  }
   cachedMacAddress = std::string(macStr);
 #else
   WiFi.mode(WIFI_STA);
@@ -343,7 +348,7 @@ void WifiSelectionActivity::setSelectedNetwork(const WifiNetworkInfo& network) {
 }
 
 bool WifiSelectionActivity::connectUsingSavedCredential(const WifiNetworkInfo& network, const bool isAutoConnectAttempt) {
-  const auto* savedCred = WIFI_STORE.findCredential(network.ssid);
+  const auto savedCred = WIFI_STORE.findCredential(network.ssid);
   if (!savedCred || (network.isEncrypted && savedCred->password.empty())) {
     return false;
   }
@@ -371,11 +376,26 @@ void WifiSelectionActivity::attemptConnection() {
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
 
-  // Set hostname so routers show "CrossPoint-Reader-AABBCCDDEEFF" instead of "esp32-XXXXXXXXXXXX"
+  // Read the hardware-derived station MAC directly: WiFi.macAddress() can
+  // still return a placeholder before the STA netif is ready (upstream
+  // 9b090266).
+#if defined(ESP32) || defined(ARDUINO_ARCH_ESP32)
+  uint8_t mac[6] = {};
+  const esp_err_t macResult = esp_read_mac(mac, ESP_MAC_WIFI_STA);
+  if (macResult == ESP_OK) {
+    char hostname[sizeof("CrossPoint-Reader-") + 12];
+    snprintf(hostname, sizeof(hostname), "CrossPoint-Reader-%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2],
+             mac[3], mac[4], mac[5]);
+    WiFi.setHostname(hostname);
+  } else {
+    LOG_ERR("WIFI", "Failed to read station MAC for hostname (err=%d)", static_cast<int>(macResult));
+  }
+#else
   String mac = WiFi.macAddress();
   mac.replace(":", "");
-  String hostname = "CrossPoint-Reader-" + mac;
+  const String hostname = "CrossPoint-Reader-" + mac;
   WiFi.setHostname(hostname.c_str());
+#endif
 
   const char* password = (selectedRequiresPassword && !enteredPassword.empty()) ? enteredPassword.c_str() : nullptr;
   if (selectedHasBssid && selectedChannel > 0) {
@@ -665,7 +685,8 @@ void WifiSelectionActivity::render(RenderLock&&) {
   const auto pageHeight = renderer.getScreenHeight();
 
   // Draw header
-  char countStr[32];
+  // Translated UTF-8 labels can occupy substantially more bytes than English.
+  char countStr[64];
   snprintf(countStr, sizeof(countStr), tr(STR_NETWORKS_FOUND), realNetworkCount);
   GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight}, tr(STR_WIFI_NETWORKS),
                  countStr);

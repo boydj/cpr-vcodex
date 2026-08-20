@@ -254,7 +254,8 @@ constexpr StrId OPT_UI_THEME[] = {StrId::STR_THEME_LYRA, StrId::STR_THEME_LYRA_C
 constexpr StrId OPT_FONT_FAMILY[] = {StrId::STR_BOOKERLY, StrId::STR_NOTO_SANS};
 constexpr StrId OPT_FONT_SIZE[] = {StrId::STR_X_SMALL, StrId::STR_SMALL, StrId::STR_MEDIUM, StrId::STR_LARGE,
                                    StrId::STR_X_LARGE};
-constexpr StrId OPT_LINE_SPACING[] = {StrId::STR_TIGHT, StrId::STR_NORMAL, StrId::STR_WIDE};
+constexpr StrId OPT_LINE_SPACING[] = {StrId::STR_TIGHT, StrId::STR_NORMAL, StrId::STR_WIDE,
+                                      StrId::STR_EXTRA_WIDE};
 constexpr StrId OPT_ALIGNMENT[] = {StrId::STR_JUSTIFY, StrId::STR_ALIGN_LEFT, StrId::STR_CENTER, StrId::STR_ALIGN_RIGHT,
                                    StrId::STR_BOOK_S_STYLE};
 constexpr StrId OPT_BIONIC[] = {StrId::STR_STATE_OFF, StrId::STR_NORMAL, StrId::STR_SUBTLE};
@@ -1200,6 +1201,10 @@ void CrossPointWebServer::handleFileListData() const {
       seenFirst = true;
     }
     server->sendContent(output);
+    // A slow browser/client can make sendContent block long enough to starve
+    // the network task or watchdog while a large directory is streamed.
+    yield();
+    esp_task_wdt_reset();
   });
   server->sendContent("]");
   // End of streamed response, empty chunk to signal client
@@ -2100,6 +2105,8 @@ void CrossPointWebServer::handleGetOpdsServers() const {
     sendRaw(server.get(), ",\"hasPassword\":");
     sendRaw(server.get(), servers[i].password.empty() ? "false" : "true");
     server->sendContent("}", 1);
+    yield();
+    esp_task_wdt_reset();
   }
 
   server->sendContent("]");
