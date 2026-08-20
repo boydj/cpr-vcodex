@@ -27,6 +27,7 @@
 #include "EpubReaderChapterSelectionActivity.h"
 #include "EpubReaderFootnotesActivity.h"
 #include "EpubReaderPercentSelectionActivity.h"
+#include "HighlightTextMatcher.h"
 #include "KOReaderCredentialStore.h"
 #include "KOReaderSyncActivity.h"
 #include "MappedInputManager.h"
@@ -212,26 +213,18 @@ struct HighlightWordRef {
   uint16_t index = 0;
 };
 
-bool hasEmSpacePrefix(const std::string& text) {
-  return text.size() >= 3 && static_cast<unsigned char>(text[0]) == 0xE2 &&
+bool hasEmSpacePrefix(const char* text) {
+  return text && static_cast<unsigned char>(text[0]) == 0xE2 &&
          static_cast<unsigned char>(text[1]) == 0x80 && static_cast<unsigned char>(text[2]) == 0x83;
 }
 
-bool nextHighlightToken(const char*& cursor, const char*& start, size_t& length) {
-  while (*cursor && std::isspace(static_cast<unsigned char>(*cursor))) ++cursor;
-  if (!*cursor) return false;
-  start = cursor;
-  while (*cursor && !std::isspace(static_cast<unsigned char>(*cursor))) ++cursor;
-  length = static_cast<size_t>(cursor - start);
-  return length > 0;
-}
-
-bool highlightWordMatches(const std::string& rawWord, const char* token, const size_t tokenLength) {
-  const char* word = rawWord.c_str() + (hasEmSpacePrefix(rawWord) ? 3 : 0);
-  while (*word && std::isspace(static_cast<unsigned char>(*word))) ++word;
-  size_t length = std::strlen(word);
-  while (length > 0 && std::isspace(static_cast<unsigned char>(word[length - 1]))) --length;
-  return length == tokenLength && std::strncmp(word, token, tokenLength) == 0;
+HighlightTextMatcher::TokenFragmentResult matchHighlightFragment(const HighlightWordRef& ref, const char* token,
+                                                                 const size_t tokenLength,
+                                                                 const size_t tokenOffset) {
+  const char* rawWord = ref.block->wordText(ref.index);
+  const char* word = rawWord + (hasEmSpacePrefix(rawWord) ? 3 : 0);
+  return HighlightTextMatcher::matchTokenFragment(word, ref.block->wordEndsWithInsertedHyphen(ref.index), token,
+                                                  tokenLength, tokenOffset);
 }
 
 }  // namespace
@@ -1783,14 +1776,28 @@ void EpubReaderActivity::drawTextHighlights(const Page& page, const int oriented
       const char* token = nullptr;
       size_t tokenLength = 0;
       size_t pageWord = candidate;
+      size_t tokenOffset = 0;
       bool matched = true;
-      while (nextHighlightToken(cursor, token, tokenLength)) {
-        if (pageWord >= wordCount ||
-            !highlightWordMatches(words[pageWord].block->wordText(words[pageWord].index), token, tokenLength)) {
+      while (HighlightTextMatcher::nextToken(cursor, token, tokenLength)) {
+        bool tokenComplete = false;
+        while (pageWord < wordCount) {
+          const auto fragment = matchHighlightFragment(words[pageWord], token, tokenLength, tokenOffset);
+          if (fragment.match == HighlightTextMatcher::TokenFragmentMatch::MISMATCH) {
+            matched = false;
+            break;
+          }
+          ++pageWord;
+          tokenOffset += fragment.tokenBytes;
+          if (fragment.match == HighlightTextMatcher::TokenFragmentMatch::COMPLETES_TOKEN) {
+            tokenOffset = 0;
+            tokenComplete = true;
+            break;
+          }
+        }
+        if (!matched || !tokenComplete) {
           matched = false;
           break;
         }
-        ++pageWord;
       }
       if (!matched || pageWord == candidate) continue;
       const int distance = std::abs(static_cast<int>(candidate) - static_cast<int>(highlight.startWordIndex));

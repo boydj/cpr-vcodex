@@ -240,6 +240,7 @@ void ParsedText::addWord(std::string word, const EpdFontFamily::Style fontStyle,
     wordContinues.push_back(attachToPrevious);
     wordNoSpaceBefore.push_back(false);
     wordFocusBoundary.push_back(0);
+    wordLayoutFlags.push_back(0);
     pushVisibleOffset(visibleTextOffset);
     if (!rubyTexts.empty()) rubyTexts.emplace_back();
     return;
@@ -284,6 +285,7 @@ void ParsedText::addWord(std::string word, const EpdFontFamily::Style fontStyle,
     wordContinues.reserve(newCapacity);
     wordNoSpaceBefore.reserve(newCapacity);
     wordFocusBoundary.reserve(newCapacity);
+    wordLayoutFlags.reserve(newCapacity);
     wordVisibleOffsetDeltas.reserve(newCapacity);
   }
 
@@ -305,6 +307,7 @@ void ParsedText::addWord(std::string word, const EpdFontFamily::Style fontStyle,
       wordContinues.push_back(attach);
       wordNoSpaceBefore.push_back(noSpaceBefore);
       wordFocusBoundary.push_back(0);
+      wordLayoutFlags.push_back(0);
       pushVisibleOffset(segmentOffset);
       if (!rubyTexts.empty()) rubyTexts.emplace_back();
     } else {
@@ -329,6 +332,7 @@ void ParsedText::addWord(std::string word, const EpdFontFamily::Style fontStyle,
         wordContinues.push_back(attach);
         wordNoSpaceBefore.push_back(noSpaceBefore);
         wordFocusBoundary.push_back(0);
+        wordLayoutFlags.push_back(0);
         pushVisibleOffset(segmentOffset);
         if (!rubyTexts.empty()) rubyTexts.emplace_back();
       } else {
@@ -345,6 +349,7 @@ void ParsedText::addWord(std::string word, const EpdFontFamily::Style fontStyle,
         wordContinues.push_back(attach);
         wordNoSpaceBefore.push_back(noSpaceBefore);
         wordFocusBoundary.push_back(static_cast<uint8_t>(std::min<size_t>(splitByteOffset, 255)));
+        wordLayoutFlags.push_back(0);
         pushVisibleOffset(segmentOffset);
         if (!rubyTexts.empty()) rubyTexts.emplace_back();
       }
@@ -467,6 +472,7 @@ void ParsedText::layoutAndExtractLines(const GfxRenderer& renderer, const int fo
     wordContinues.erase(wordContinues.begin(), wordContinues.begin() + consumed);
     wordNoSpaceBefore.erase(wordNoSpaceBefore.begin(), wordNoSpaceBefore.begin() + consumed);
     wordFocusBoundary.erase(wordFocusBoundary.begin(), wordFocusBoundary.begin() + consumed);
+    wordLayoutFlags.erase(wordLayoutFlags.begin(), wordLayoutFlags.begin() + consumed);
     eraseVisibleOffsetPrefix(consumed);
     if (!rubyTexts.empty()) {
       const size_t rubyConsumed = std::min(consumed, rubyTexts.size());
@@ -898,6 +904,7 @@ bool ParsedText::hyphenateWordAtIndex(const size_t wordIndex, const int availabl
   words[wordIndex].resize(chosenOffset);
   if (chosenNeedsHyphen) {
     words[wordIndex].push_back('-');
+    wordLayoutFlags[wordIndex] = TextBlock::WORD_FLAG_INSERTED_HYPHEN;
   }
 
   // Insert the remainder word (with matching style and continuation flag) directly after the prefix.
@@ -906,6 +913,7 @@ bool ParsedText::hyphenateWordAtIndex(const size_t wordIndex, const int availabl
   insertVisibleOffset(wordIndex + 1, remainderOffset);
   wordFocusBoundary.insert(wordFocusBoundary.begin() + wordIndex + 1,
                            TokenBoundary::focusBoundaryAfter(focusBoundary, chosenOffset));
+  wordLayoutFlags.insert(wordLayoutFlags.begin() + wordIndex + 1, 0);
   wordFocusBoundary[wordIndex] = TokenBoundary::focusBoundaryBefore(focusBoundary, chosenOffset);
   if (wordFocusBoundary[wordIndex] >= words[wordIndex].size()) {
     wordStyles[wordIndex] = static_cast<EpdFontFamily::Style>(wordStyles[wordIndex] | EpdFontFamily::BOLD);
@@ -1058,6 +1066,7 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
   std::vector<std::string> lineWords(std::make_move_iterator(words.begin() + lastBreakAt),
                                      std::make_move_iterator(words.begin() + lineBreak));
   std::vector<EpdFontFamily::Style> lineWordStyles(wordStyles.begin() + lastBreakAt, wordStyles.begin() + lineBreak);
+  std::vector<uint8_t> lineLayoutFlags(wordLayoutFlags.begin() + lastBreakAt, wordLayoutFlags.begin() + lineBreak);
   std::vector<std::string> lineRubyTexts(lineWordCount);
   if (!rubyTexts.empty() && lastBreakAt < rubyTexts.size()) {
     const size_t copyCount = std::min(lineBreak, rubyTexts.size()) - lastBreakAt;
@@ -1082,7 +1091,8 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
   if (!lineHasFocusSplit) {
     auto block = std::shared_ptr<TextBlock>(new (std::nothrow)
                                                 TextBlock(lineWords, lineXPos, lineWordStyles, std::vector<uint8_t>{},
-                                                          std::vector<uint16_t>{}, blockStyle, lineRubyTexts));
+                                                          std::vector<uint16_t>{}, lineLayoutFlags, blockStyle,
+                                                          lineRubyTexts));
     processLine(block && block->valid() ? std::move(block) : nullptr, lineVisibleOffset);
     return;
   }
@@ -1101,6 +1111,6 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
   }
 
   auto block = std::shared_ptr<TextBlock>(new (std::nothrow) TextBlock(
-      lineWords, lineXPos, lineWordStyles, outBoundaries, outSuffixX, blockStyle, lineRubyTexts));
+      lineWords, lineXPos, lineWordStyles, outBoundaries, outSuffixX, lineLayoutFlags, blockStyle, lineRubyTexts));
   processLine(block && block->valid() ? std::move(block) : nullptr, lineVisibleOffset);
 }

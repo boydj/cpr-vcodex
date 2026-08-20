@@ -33,6 +33,7 @@ Some of the main additions include:
 - offline Flashcards with CSV decks, multiple study modes, recents, stats, and session summaries
 - unified EPUB Highlights for selected text and saved pages, with a global Highlights app and backward-compatible bookmark storage
 - repagination-resistant EPUB page marks and highlights, stored with visible-text anchors in BookmarkStore v5 while retaining v1-v4 migration
+- highlight matching that survives layout-inserted hyphens, split ellipses, and non-breaking-space fragments without confusing authored hyphens
 - customizable Home and Apps shortcuts, reader quick settings, reading layouts, themes, and Lyra Carousel workflow improvements
 - enhanced sleep tools, including custom image directories, cover/custom stats screens, sleep previews, cached sleep frames, and configurable clean sleep refresh
 - downloadable and manually installable SD-card fonts, including vCodex families such as `ChareInk` and `Lexend`
@@ -51,21 +52,22 @@ The philosophy of this fork is simple: keep the firmware fast, stable, and focus
 |---|---|
 | Project | `CPR-vCodex` |
 | Device | `Xteink X4`; `Xteink X3` compatibility reported by users, not personally tested |
-| Current release (CPR-vCodex) build | [`1.5.0.17-cpr-vcodex`](https://github.com/franssjz/cpr-vcodex/releases/tag/1.5.0.17-cpr-vcodex) |
+| Current release (CPR-vCodex) build | [`1.5.0.20-cpr-vcodex`](https://github.com/franssjz/cpr-vcodex/releases/tag/1.5.0.20-cpr-vcodex) |
 | Latest SD font package | [`sd-fonts-m1-b4`](https://github.com/franssjz/cpr-vcodex/releases/tag/sd-fonts-m1-b4) |
 | Changelog | [CHANGELOG.md](./CHANGELOG.md) |
-| Current release sync | Selected CrossPoint Reader 1.5 EPUB indexing and memory work through [`f0a50557`](https://github.com/crosspoint-reader/crosspoint-reader/commit/f0a50557), plus targeted long-text and HTML line-break fixes from [`97ee05a4`](https://github.com/crosspoint-reader/crosspoint-reader/commit/97ee05a40c3ff48b14f392e197b0e5bb4e161890) and [`b508f75e`](https://github.com/crosspoint-reader/crosspoint-reader/commit/b508f75e79c6b9e692c72b7322034bab3ac6d972), manually adapted to retain the vCodex band renderer, KOReader profiles, reading statistics, highlights, themes, ruby, and SD-card fonts; `open-x4-sdk` remains at [`198ad26`](https://github.com/crosspoint-reader/community-sdk/commit/198ad267219c25c8ab84418b806c66f1fb5216a3). |
-| Current release focus | Completes transparent custom PNG sleep transitions by removing the temporary popup while retaining the reader or Home screen beneath the PNG. |
-| Latest release notes | - The `Entering sleep` popup is shown briefly, then only its framebuffer region is restored before PNG composition.<br>- Transparent PNG pixels continue to reveal the previous reader or Home screen.<br>- The final fix is isolated to the sleep transition and leaves Home, recent-books storage, and UI theme classes unchanged. |
+| Current release sync | Selected CrossPoint Reader 1.5 changes reviewed through `master` [`95a847c7`](https://github.com/crosspoint-reader/crosspoint-reader/commit/95a847c7210a5060cf0bb5a20fbc855869d735f2) and `develop` [`93d572fc`](https://github.com/crosspoint-reader/crosspoint-reader/commit/93d572fc), plus targeted CrossInk highlight/font/file-browser improvements, manually adapted to retain the vCodex band renderer, KOReader profiles, reading statistics, highlights, themes, ruby, Lyra, and SD-card fonts; `open-x4-sdk` remains at [`198ad26`](https://github.com/crosspoint-reader/community-sdk/commit/198ad267219c25c8ab84418b806c66f1fb5216a3). |
+| Current release focus | Makes bookmarks/highlights resistant to repagination, improves Ruby/CJK and hyphenated-highlight layout, and hardens SD-font, Wi-Fi, web settings, and File Browser memory use. |
+| Latest release notes | - BookmarkStore v5 adds visible-text anchors while retaining v1-v4 migration.<br>- Ruby/CJK, Unicode hyphenation, TXT end-of-book, CJK fallback, and CrossInk highlight matching are improved.<br>- SD fonts are discovered lazily and released before Wi-Fi; KOReader passwords stay write-only and File Browser JSON uses checked batching. |
 | Base firmware line | `CrossPoint Reader 1.5.0` |
 | Latest official commit reviewed | `master` through [`95a847c7`](https://github.com/crosspoint-reader/crosspoint-reader/commit/95a847c7210a5060cf0bb5a20fbc855869d735f2) and `develop` through [`93d572fc`](https://github.com/crosspoint-reader/crosspoint-reader/commit/93d572fc) |
-| Latest official commit incorporated | The released line includes selected changes from [`67936cb3`](https://github.com/crosspoint-reader/crosspoint-reader/commit/67936cb3) through [`f0a50557`](https://github.com/crosspoint-reader/crosspoint-reader/commit/f0a50557). Current `Unreleased` work additionally adapts isolated safety, EPUB, render, File Browser, KOSync, web, bookmark-anchor, CJK fallback, hyphenation, and line-spacing changes reviewed through `93d572fc`; larger SDK, FUI, settings-persistence, touch, RTL, OTA, sleep, and hardware rewrites remain intentionally deferred. |
+| Latest official commit incorporated | Release `1.5.0.20` includes selected changes from [`67936cb3`](https://github.com/crosspoint-reader/crosspoint-reader/commit/67936cb3) through the isolated safety, EPUB, render, File Browser, KOSync, web, bookmark-anchor, CJK fallback, hyphenation, and line-spacing work reviewed through `93d572fc`; larger SDK, FUI, settings-persistence, touch, RTL, OTA, sleep, and hardware rewrites remain intentionally deferred. |
 | Intentional upstream exclusions | Unsupported upstream theme variants such as `RoundedRaff` remain out of the supported vCodex theme list; other upstream UI/config changes are adapted selectively to preserve the existing X4 workflow. |
 
 ## Web tools
 
 - [Auto Flash](https://franssjz.github.io/cpr-vcodex/flash.html) installs the latest CPR-vCodex firmware from Chrome or Edge using Web Serial.
 - [Reading Stats Editor](https://franssjz.github.io/cpr-vcodex/reading-stats-editor/) edits exported reading stats locally in the browser. No upload, no server.
+- Device web settings treat the KOReader password as write-only: the stored value is never returned to the browser, which only indicates that a password is already configured.
 
 ## SD card DICTIONARIES
 
@@ -91,6 +93,8 @@ SD:/
 ```
 
 Each language or dictionary group lives in `dictionaries/<language>/`. The directory name is the visible language/group label, so names such as `spanish`, `english`, `english-spanish`, or `en-es` are all valid. Each directory may contain one or more dictionaries.
+
+The root folder is resolved case-insensitively, so `/Dictionaries`, `/DICTIONARIES`, and `/dictionaries` all work; CPR-vCodex keeps using the exact capitalization already present on the card.
 
 For every StarDict dictionary, the required files are:
 
@@ -128,6 +132,8 @@ If you know reliable public dictionary links for more languages, please contact 
 ## SD card fonts
 
 `CPR-vCodex` supports extra `.cpfont` families stored on the microSD card. The built-in reader fonts still work as usual, and downloaded SD fonts such as Lexend appear in `Settings > Reader > Font Family` after the firmware discovers them.
+
+Font discovery is lazy while the built-in font is selected, and the active SD font plus its catalog are released before Wi-Fi startup to leave more contiguous RAM for the radio. Both `/.fonts` and `/fonts` are resolved case-insensitively, including installs and deletion.
 
 SD-card font rendering keeps a fast per-glyph advance cache when it is complete, and falls back to direct glyph measurement when an external font cache is missing an entry. Browser File Transfer downloads also preserve the advertised response size so downloaded files do not fail with content-length mismatch errors.
 
@@ -481,6 +487,8 @@ entries rather than being discarded. Format v5 adds a visible Unicode-codepoint 
 to new page marks and text highlights, so reopening them remains tied to the same content
 after changing font size, margins, line spacing, or orientation.
 
+Highlights also recognize words split by a layout-inserted hyphen and adjacent ellipsis/NBSP fragments after reflow. A hyphen authored in the EPUB remains part of the text and is never silently discarded by matching.
+
 The text-selection and on-page highlighting behavior is adapted from
 [CrossInk](https://github.com/uxjulia/CrossInk) by
 [Julia Nguyen (`uxjulia`)](https://github.com/uxjulia), beginning with CrossInk
@@ -529,6 +537,7 @@ It supports:
 - preview
 - sequential vs shuffle order
 - persistent selected directory
+- case-insensitive default folders such as `/Sleep`, `/sleep`, and `/.Sleep`
 - cached sleep framebuffers
 - reduced repetition through recent-wallpaper tracking
 - `Reading Dashboard` sleep mode with daily goal, streak, reading totals, and achievement progress
@@ -546,7 +555,7 @@ Useful reader/display additions include:
 | Display | `UI Theme`, sleep-screen controls, `Dark Mode (Experimental)`, `Sunlight Fading Fix` |
 | Controls | `Side Button Layout`, `Long-press button behavior`, `Short Power Button Click`, `Tilt Page Turn` |
 | Status bar | EPUB/status-bar fields, battery visibility, `XTC Status Bar` |
-| System | `SD Card Firmware Update`, OTA update check, cache clearing, language, OPDS servers |
+| System | `Hide File Extension`, `SD Card Firmware Update`, OTA update check, cache clearing, language, OPDS servers |
 | Date | `Display Day`, `Date Format`, `Time Zone`, `Sync Day` reminder behavior |
 | Reading stats | `Daily Goal`, `Show after reading`, `Reset Reading Stats`, `Export Reading Stats`, `Import Reading Stats` |
 | Achievements | `Enable achievements`, `Achievement popups`, `Reset achievements`, `Sync with prev. stats` |

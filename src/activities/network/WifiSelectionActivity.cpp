@@ -4,6 +4,7 @@
 #include <HalClock.h>
 #include <I18n.h>
 #include <Logging.h>
+#include <MemoryBudget.h>
 #include <WiFi.h>
 
 #include <algorithm>
@@ -11,6 +12,7 @@
 
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
+#include "SdCardFontGlobals.h"
 #include "WifiCredentialStore.h"
 #include "activities/util/KeyboardEntryActivity.h"
 #include "components/UITheme.h"
@@ -31,6 +33,18 @@ bool hasBssidBytes(const uint8_t bssid[WIFI_BSSID_LEN]) {
 
 void WifiSelectionActivity::onEnter() {
   Activity::onEnter();
+
+  // WiFi startup needs several contiguous driver buffers. Release both the
+  // active SD font and its catalog before the radio starts allocating them.
+  const auto heapBeforeFontRelease = MemoryBudget::snapshot();
+  const bool releasedSdFont = sdFontSystem.releaseForNetwork(renderer);
+  const auto heapAfterFontRelease = MemoryBudget::snapshot();
+  LOG_DBG("WIFI", "SD font network trim released=%d free=%u->%u delta=%ld maxAlloc=%u->%u delta=%ld",
+          releasedSdFont, heapBeforeFontRelease.freeHeap, heapAfterFontRelease.freeHeap,
+          static_cast<int32_t>(heapAfterFontRelease.freeHeap) - static_cast<int32_t>(heapBeforeFontRelease.freeHeap),
+          heapBeforeFontRelease.maxAllocHeap, heapAfterFontRelease.maxAllocHeap,
+          static_cast<int32_t>(heapAfterFontRelease.maxAllocHeap) -
+              static_cast<int32_t>(heapBeforeFontRelease.maxAllocHeap));
 
   // Load saved WiFi credentials - SD card operations need lock as we use SPI
   // for both

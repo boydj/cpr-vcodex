@@ -31,7 +31,8 @@ namespace {
 // v44: per-page visible Unicode-codepoint offsets for stable reader anchors.
 // v45: Focus Reading keeps whole words for hyphenation and visible hyphens are
 //      valid non-stretching line-break opportunities.
-constexpr uint8_t SECTION_FILE_VERSION = 45;
+// v46: TextBlock records layout-inserted hyphens for reflow-stable highlights.
+constexpr uint8_t SECTION_FILE_VERSION = 46;
 // Written into the version field while a build is in progress; patched to
 // SECTION_FILE_VERSION only when the build is finalized. An abandoned /
 // crash-interrupted .bin therefore carries version 0, which loadSectionFile rejects

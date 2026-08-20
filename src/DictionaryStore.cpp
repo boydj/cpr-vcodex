@@ -1181,7 +1181,12 @@ void DictionaryStore::scan() {
     }
   }
 
-  auto root = Storage.open(DICTIONARY_ROOT);
+  char resolvedRoot[32];
+  const char* dictionaryRoot =
+      FsHelpers::resolveRootDirectoryIgnoreCase(DICTIONARY_ROOT, resolvedRoot, sizeof(resolvedRoot))
+          ? resolvedRoot
+          : DICTIONARY_ROOT;
+  auto root = Storage.open(dictionaryRoot);
   if (!root || !root.isDirectory()) {
     if (root) root.close();
     if (!entries.empty() && entries[0].ifoPath == activeIfoPath) activeIndex = 0;
@@ -1198,7 +1203,7 @@ void DictionaryStore::scan() {
     }
 
     const std::string languageId = name;
-    const std::string dirPath = joinPath(DICTIONARY_ROOT, languageId);
+    const std::string dirPath = joinPath(dictionaryRoot, languageId);
     child.close();
 
     auto dir = Storage.open(dirPath.c_str());

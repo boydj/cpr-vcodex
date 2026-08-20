@@ -378,6 +378,7 @@ constexpr WebSettingDef WEB_SETTINGS[] = {
 
     WEB_ENUM(StrId::STR_TIME_TO_SLEEP, sleepTimeout, OPT_SLEEP_TIMEOUT, "sleepTimeout", StrId::STR_CAT_SYSTEM),
     WEB_TOGGLE(StrId::STR_SHOW_HIDDEN_FILES, showHiddenFiles, "showHiddenFiles", StrId::STR_CAT_SYSTEM),
+    WEB_TOGGLE(StrId::STR_HIDE_FILE_EXTENSION, hideFileExtension, "hideFileExtension", StrId::STR_CAT_SYSTEM),
 
     WEB_TOGGLE(StrId::STR_DISPLAY_DAY, displayDay, "displayDay", StrId::STR_APPS),
     WEB_ENUM(StrId::STR_DISPLAY_DAY_TIME, displayDay, OPT_DISPLAY_HEADER, "displayDay", StrId::STR_APPS),
@@ -824,7 +825,7 @@ void CrossPointWebServer::handleStatus() const {
   server->send(200, "application/json", json);
 }
 
-void CrossPointWebServer::scanFiles(const char* path, const std::function<void(FileInfo)>& callback) const {
+void CrossPointWebServer::scanFiles(const char* path, const FileVisitor visitor, void* context) const {
   FsFile root = Storage.open(path);
   if (!root) {
     LOG_DBG("WEB", "Failed to open directory: %s", path);
@@ -878,7 +879,7 @@ void CrossPointWebServer::scanFiles(const char* path, const std::function<void(F
         info.completed = isCompletedReadingFilePath(fullPath);
       }
 
-      callback(info);
+      visitor(info, context);
     }
 
     file.close();
@@ -1174,39 +1175,78 @@ void CrossPointWebServer::handleFileListData() const {
 
   server->setContentLength(CONTENT_LENGTH_UNKNOWN);
   server->send(200, "application/json", "");
-  server->sendContent("[");
-  char output[640];
-  constexpr size_t outputSize = sizeof(output);
-  bool seenFirst = false;
+  // Keep writes near a TCP segment without adding 1.4KB to this task's stack.
+  // Allocation is fallible; low-memory devices retain the per-entry path.
+  constexpr size_t BATCH_CAPACITY = 1400;
+  constexpr size_t OUTPUT_CAPACITY = 640;
+  constexpr size_t FALLBACK_OUTPUT_CAPACITY = 240;
+  auto scratch = makeUniqueNoThrow<char[]>(BATCH_CAPACITY + OUTPUT_CAPACITY);
+  char fallbackOutput[FALLBACK_OUTPUT_CAPACITY];
   JsonDocument doc;
 
-  scanFiles(currentPath.c_str(), [this, &output, &doc, seenFirst](const FileInfo& info) mutable {
-    doc.clear();
-    doc["name"] = info.name;
-    doc["size"] = info.size;
-    doc["isDirectory"] = info.isDirectory;
-    doc["isEpub"] = info.isEpub;
-    doc["completed"] = info.completed;
+  struct FileListContext {
+    WebServer* server;
+    char* batch;
+    size_t batchLength;
+    char* output;
+    size_t outputCapacity;
+    JsonDocument* doc;
+    bool seenFirst;
+  } context{server.get(), scratch ? scratch.get() : nullptr, 0,
+            scratch ? scratch.get() + BATCH_CAPACITY : fallbackOutput,
+            scratch ? OUTPUT_CAPACITY : FALLBACK_OUTPUT_CAPACITY, &doc, false};
 
-    const size_t written = serializeJson(doc, output, outputSize);
-    if (written >= outputSize) {
-      // JSON output truncated; skip this entry to avoid sending malformed JSON
-      LOG_DBG("WEB", "Skipping file entry with oversized JSON for name: %s", info.name.c_str());
-      return;
-    }
+  if (context.batch) {
+    context.batch[context.batchLength++] = '[';
+  } else {
+    LOG_ERR("WEB", "OOM: file list scratch buffer; using limited per-entry sends");
+    server->sendContent("[");
+  }
 
-    if (seenFirst) {
-      server->sendContent(",");
-    } else {
-      seenFirst = true;
+  scanFiles(
+      currentPath.c_str(),
+      [](const FileInfo& info, void* rawContext) {
+        auto& context = *static_cast<FileListContext*>(rawContext);
+        context.doc->clear();
+        (*context.doc)["name"] = info.name;
+        (*context.doc)["size"] = info.size;
+        (*context.doc)["isDirectory"] = info.isDirectory;
+        (*context.doc)["isEpub"] = info.isEpub;
+        (*context.doc)["completed"] = info.completed;
+
+        const size_t written = serializeJson(*context.doc, context.output, context.outputCapacity);
+        if (written >= context.outputCapacity) {
+          LOG_DBG("WEB", "Skipping file entry with oversized JSON for name: %s", info.name.c_str());
+          return;
+        }
+
+        const size_t required = written + (context.seenFirst ? 1 : 0);
+        if (context.batch) {
+          if (context.batchLength + required > BATCH_CAPACITY) {
+            context.server->sendContent(context.batch, context.batchLength);
+            context.batchLength = 0;
+          }
+          if (context.seenFirst) context.batch[context.batchLength++] = ',';
+          memcpy(context.batch + context.batchLength, context.output, written);
+          context.batchLength += written;
+        } else {
+          if (context.seenFirst) context.server->sendContent(",");
+          context.server->sendContent(context.output);
+        }
+        context.seenFirst = true;
+      },
+      &context);
+
+  if (context.batch) {
+    if (context.batchLength + 1 > BATCH_CAPACITY) {
+      server->sendContent(context.batch, context.batchLength);
+      context.batchLength = 0;
     }
-    server->sendContent(output);
-    // A slow browser/client can make sendContent block long enough to starve
-    // the network task or watchdog while a large directory is streamed.
-    yield();
-    esp_task_wdt_reset();
-  });
-  server->sendContent("]");
+    context.batch[context.batchLength++] = ']';
+    server->sendContent(context.batch, context.batchLength);
+  } else {
+    server->sendContent("]");
+  }
   // End of streamed response, empty chunk to signal client
   server->sendContent("");
   LOG_DBG("WEB", "Served file listing page for path: %s", currentPath.c_str());
@@ -1943,7 +1983,10 @@ void CrossPointWebServer::handleGetSettings() const {
             value = KOREADER_STORE.getUsername();
             break;
           case WebDynamicSetting::KoPassword:
-            value = KOREADER_STORE.getPassword();
+            // Credentials are write-only in the browser. An empty field is
+            // ignored by the diff-based settings form unless the user enters
+            // a replacement, so the stored password remains unchanged.
+            value.clear();
             break;
           case WebDynamicSetting::KoServerUrl:
             value = KOREADER_STORE.getServerUrl();
@@ -1952,6 +1995,10 @@ void CrossPointWebServer::handleGetSettings() const {
             break;
         }
         sendJsonStringField(server.get(), "value", value.c_str());
+        if (s.dynamic == WebDynamicSetting::KoPassword) {
+          server->sendContent(",\"configured\":", 14);
+          server->sendContent(KOREADER_STORE.getPassword().empty() ? "false" : "true");
+        }
         break;
       }
       default:

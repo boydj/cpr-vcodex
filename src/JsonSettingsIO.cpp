@@ -513,6 +513,7 @@ bool loadSettingsDirect(CrossPointSettings& s, const JsonDocument& doc, bool* ne
   loadEnum("tiltPageTurn", s.tiltPageTurn, CrossPointSettings::TILT_PAGE_TURN_COUNT);
   loadEnum("sleepTimeout", s.sleepTimeout, CrossPointSettings::SLEEP_TIMEOUT_COUNT);
   loadToggle("showHiddenFiles", s.showHiddenFiles);
+  loadToggle("hideFileExtension", s.hideFileExtension);
 
   loadString("opdsServerUrl", s.opdsServerUrl, sizeof(s.opdsServerUrl));
   loadString("opdsUsername", s.opdsUsername, sizeof(s.opdsUsername));
@@ -878,6 +879,7 @@ bool JsonSettingsIO::saveSettings(const CrossPointSettings& s, const char* path)
 
   doc["sleepTimeout"] = s.sleepTimeout;
   doc["showHiddenFiles"] = s.showHiddenFiles;
+  doc["hideFileExtension"] = s.hideFileExtension;
 
   doc["displayDay"] = s.displayDay;
   doc["syncDayWifiChoice"] = s.syncDayWifiChoice;

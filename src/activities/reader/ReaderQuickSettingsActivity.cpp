@@ -141,6 +141,7 @@ void ReaderQuickSettingsActivity::toggleSelectedSetting() {
   const auto& setting = settings()[selectedIndex];
 
   if (setting.type == QuickSettingType::FontFamily) {
+    sdFontSystem.refreshIfDirty();
     startActivityForResult(std::make_unique<FontSelectionActivity>(renderer, mappedInput, &sdFontSystem.registry()),
                            [this](const ActivityResult&) {
                              ensureSdFontLoaded();

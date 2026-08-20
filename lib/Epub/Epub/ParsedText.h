@@ -30,6 +30,9 @@ class ParsedText {
   // Bytes [0, boundary) render bold for Focus Reading. Keeping the original
   // word whole lets hyphenation consider every legal breakpoint.
   std::vector<uint8_t> wordFocusBoundary;
+  // One byte while laying out; TextBlock stores it only for lines that contain
+  // a hyphen inserted by layout rather than authored in the EPUB.
+  std::vector<uint8_t> wordLayoutFlags;
   // Source position for each layout token, stored as uint16_t deltas from a
   // shared base. Sparse rebases keep pathological long paragraphs representable
   // without paying four bytes per token on the ESP32-C3.
