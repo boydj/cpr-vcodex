@@ -4345,6 +4345,10 @@ async function processImage(data, imageState = 0, imagePath = '') {
   });
 }
 
+function getConvertedImageOutputPath(path, processingError) {
+  return processingError ? path : path.replace(/\.[^.]+$/, '.jpg');
+}
+
 // Convert EPUB file - returns converted blob
 async function convertEpubFile(file, progressCallback) {
   const startTime = Date.now();
@@ -4360,12 +4364,6 @@ async function convertEpubFile(file, progressCallback) {
 
   const zip = await JSZip.loadAsync(file);
   const renamed = {};
-  zip.forEach(p => {
-    const l = p.toLowerCase();
-    if (l.match(/\.(png|gif|webp|bmp|jpeg)$/)) {
-      renamed[p] = p.replace(/\.(png|gif|webp|bmp|jpeg)$/i, '.jpg');
-    }
-  });
 
   const out = new JSZip();
   const entries = Object.entries(zip.files);
@@ -4438,7 +4436,11 @@ async function convertEpubFile(file, progressCallback) {
       totalNewSize += meta.finalSize;
 
       if (parts.length === 1 && parts[0].suffix === '') {
-        const newPath = renamed[path] || path.replace(/\.[^.]+$/, newExt);
+        // A failed browser conversion returns the original bytes. Preserve its
+        // extension and all EPUB references so the firmware does not select a
+        // JPEG decoder for PNG/GIF/WebP/BMP data renamed to .jpg.
+        const newPath = getConvertedImageOutputPath(path, meta.processingError === true);
+        if (!meta.processingError && newPath !== path) renamed[path] = newPath;
         out.file(newPath, parts[0].data, { compression: 'STORE', createFolders: false });
       } else {
         // Store with full path for collision prevention, but also keep original filename

@@ -2,6 +2,7 @@ add_executable(reader_regressions_test
   BookmarkStoreTest.cpp
   FsHelpersCaseTest.cpp
   HighlightTextMatcherTest.cpp
+  ImageSafetyTest.cpp
   RubyCjkLayoutTest.cpp
   TextBlockSerializationTest.cpp
   TokenBoundaryTest.cpp

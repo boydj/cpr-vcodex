@@ -32,7 +32,8 @@ namespace {
 // v45: Focus Reading keeps whole words for hyphenation and visible hyphens are
 //      valid non-stretching line-break opportunities.
 // v46: TextBlock records layout-inserted hyphens for reflow-stable highlights.
-constexpr uint8_t SECTION_FILE_VERSION = 46;
+// v47: image format/size policy changed; rebuild cached placeholder decisions.
+constexpr uint8_t SECTION_FILE_VERSION = 47;
 // Written into the version field while a build is in progress; patched to
 // SECTION_FILE_VERSION only when the build is finalized. An abandoned /
 // crash-interrupted .bin therefore carries version 0, which loadSectionFile rejects

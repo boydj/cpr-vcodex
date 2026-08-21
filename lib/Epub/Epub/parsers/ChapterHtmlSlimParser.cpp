@@ -394,10 +394,23 @@ void ChapterHtmlSlimParser::collectReferencedAnchors() {
   }
 
   std::string carry;
-  carry.reserve(256);
   char buffer[PARSE_BUFFER_SIZE + 1] = {};
 
   while (file.available() > 0 && referencedAnchors.size() < MAX_REFERENCED_ANCHORS_PER_CHAPTER) {
+    // This pass is only an optimization for retaining inline anchor targets.
+    // Do not let a link-heavy chapter consume the heap needed by Expat and
+    // page layout. Checking at vector-growth boundaries also keeps the hot
+    // scan from polling the heap for every href.
+    if (!referencedAnchors.empty() && (referencedAnchors.size() & 0x0F) == 0) {
+      const auto heap = MemoryBudget::snapshot();
+      if (!MemoryBudget::hasHeap(heap, SOFT_MIN_FREE_HEAP_FOR_TEXT_LAYOUT,
+                                 SOFT_MIN_MAX_ALLOC_FOR_TEXT_LAYOUT)) {
+        LOG_DBG("EHP", "Stopped anchor pre-scan to preserve layout heap (anchors=%u free=%u maxAlloc=%u)",
+                static_cast<unsigned>(referencedAnchors.size()), heap.freeHeap, heap.maxAllocHeap);
+        break;
+      }
+    }
+
     serviceLongParse("anchor scan");
     const size_t len = file.read(buffer, PARSE_BUFFER_SIZE);
     if (len == 0) break;
@@ -2224,8 +2237,33 @@ ChapterHtmlSlimParser::~ChapterHtmlSlimParser() { abortParse(); }
 bool ChapterHtmlSlimParser::beginParse() {
   abortParse();
   lastLongParseServiceMs = 0;
-  collectReferencedAnchors();
   lowMemoryAbort = false;
+  attemptedTextLayoutFontCacheRelease = false;
+  loggedSoftLowMemoryContinuation = false;
+
+  // The optional anchor pre-scan used to be the first allocating operation in
+  // a section build. On a fragmented X3 heap even carry.reserve(256) could
+  // therefore throw std::bad_alloc and terminate the firmware before the
+  // normal low-memory recovery had a chance to release font/CSS caches.
+  if (shouldAbortForLowMemory("anchor scan setup")) {
+    return false;
+  }
+
+  const auto anchorScanHeap = MemoryBudget::snapshot();
+  if (MemoryBudget::hasHeap(anchorScanHeap, SOFT_MIN_FREE_HEAP_FOR_TEXT_LAYOUT,
+                            SOFT_MIN_MAX_ALLOC_FOR_TEXT_LAYOUT)) {
+    collectReferencedAnchors();
+  } else {
+    referencedAnchors.clear();
+    LOG_DBG("EHP", "Skipped anchor pre-scan on constrained heap (free=%u maxAlloc=%u)", anchorScanHeap.freeHeap,
+            anchorScanHeap.maxAllocHeap);
+  }
+
+  // A chapter with many distinct href targets can lower the heap while being
+  // scanned. Re-run the recovery gate before vectors and Expat start allocating.
+  if (shouldAbortForLowMemory("parser setup")) {
+    return false;
+  }
 
   // Initialize block style stack with a root entry representing "no ancestor block elements".
   // The user's paragraph alignment is set as the default so child elements without explicit

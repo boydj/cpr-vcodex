@@ -41,10 +41,5 @@ class ImageToFramebufferDecoder {
   static void yieldDuringDecode(uint32_t& lastYieldMs);
 
  protected:
-  static constexpr int64_t MAX_SOURCE_DIMENSION = INT16_MAX;
-  // Keep the existing X4 decode-time cap; upstream's 8 MP expansion needs
-  // separate device measurements before it is safe for vCodex.
-  static constexpr int64_t MAX_SOURCE_PIXELS = 3145728;  // 2048 * 1536
-
   void warnUnsupportedFeature(const std::string& feature, const std::string& imagePath);
 };
