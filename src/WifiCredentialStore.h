@@ -60,6 +60,10 @@ class WifiCredentialStore {
   bool removeCredential(const std::string& ssid);
   std::optional<WifiCredential> findCredential(const std::string& ssid) const;
 
+  // Check whether automatic connection has any saved network to try without
+  // exposing or copying credential contents outside the locked store.
+  bool hasCredentials() const;
+
   // Check if a network is saved
   bool hasSavedCredential(const std::string& ssid) const;
 

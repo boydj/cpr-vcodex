@@ -53,6 +53,12 @@ void WifiSelectionActivity::onEnter() {
     WIFI_STORE.loadFromFile();
   }
 
+  if (allowAutoConnect && autoConnectOnly && !WIFI_STORE.hasCredentials()) {
+    LOG_DBG("WIFI", "Auto-connect only requested with no saved credentials");
+    onComplete(false);
+    return;
+  }
+
   // Reset state
   selectedNetworkIndex = 0;
   networks.clear();
@@ -176,6 +182,11 @@ void WifiSelectionActivity::processWifiScanResults() {
   if (scanResult == WIFI_SCAN_FAILED) {
     networks.clear();
     realNetworkCount = 0;
+    if (allowAutoConnect && autoConnectOnly) {
+      LOG_DBG("WIFI", "Auto-connect only requested but WiFi scan failed");
+      onComplete(false);
+      return;
+    }
     appendHiddenNetworkEntry();
     state = WifiSelectionState::NETWORK_LIST;
     selectedNetworkIndex = 0;
@@ -264,6 +275,12 @@ void WifiSelectionActivity::processWifiScanResults() {
         return;
       }
     }
+  }
+
+  if (allowAutoConnect && autoConnectOnly) {
+    LOG_DBG("WIFI", "Auto-connect only found no saved network in range");
+    onComplete(false);
+    return;
   }
 
   state = WifiSelectionState::NETWORK_LIST;
@@ -482,6 +499,12 @@ void WifiSelectionActivity::checkConnectionStatus() {
     // Stop the SDK from retrying in the background while the user is back in
     // the list; the timeout path below does the same.
     WiFi.disconnect();
+    if (autoConnectOnly) {
+      LOG_DBG("WIFI", "Auto-connect only failed for saved network %s (status=%d)", selectedSSID.c_str(),
+              static_cast<int>(status));
+      onComplete(false);
+      return;
+    }
     state = WifiSelectionState::CONNECTION_FAILED;
     requestUpdate();
     return;
@@ -493,6 +516,11 @@ void WifiSelectionActivity::checkConnectionStatus() {
             static_cast<int>(status), static_cast<int>(selectedChannel), selectedHasBssid ? 1 : 0);
     WiFi.disconnect();
     connectionError = tr(STR_ERROR_CONNECTION_TIMEOUT);
+    if (autoConnectOnly) {
+      LOG_DBG("WIFI", "Auto-connect only timed out for saved network %s", selectedSSID.c_str());
+      onComplete(false);
+      return;
+    }
     state = WifiSelectionState::CONNECTION_FAILED;
     requestUpdate();
     return;

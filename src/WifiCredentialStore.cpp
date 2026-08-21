@@ -176,6 +176,11 @@ std::optional<WifiCredential> WifiCredentialStore::findCredential(const std::str
   return std::nullopt;
 }
 
+bool WifiCredentialStore::hasCredentials() const {
+  std::lock_guard<std::mutex> lock(credentialMutex);
+  return !credentials.empty();
+}
+
 bool WifiCredentialStore::hasSavedCredential(const std::string& ssid) const {
   std::lock_guard<std::mutex> lock(credentialMutex);
   return find_if(credentials.begin(), credentials.end(),
