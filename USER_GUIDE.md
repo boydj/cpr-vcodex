@@ -453,4 +453,19 @@ pio device monitor
 
 If the device is stuck in a bootloop, press and release the Reset button. Then, press and hold on to the configured Back button and the Power Button to boot to the Home Screen.
 
+### SD firmware recovery (including USB-locked X3)
+
+The e-ink screen keeps its last image without power, so an unchanged screen does not necessarily mean the device is bricked. To enter the firmware picker without navigating the normal UI:
+
+1. Put one known-good `.bin` firmware file in the SD card root. For deterministic blind recovery, use a clean FAT32/exFAT card with no directories or other BIN files.
+2. Start with the device fully asleep. Hold the upper side/page button (`UP`), then press and hold Power as well.
+3. Hold both buttons for 5–7 seconds. Release `UP` first, keep holding Power for about one more second, then release it.
+4. Wait at least 30 seconds for the SD card and recovery picker to initialize.
+5. Press the logical `Confirm` button once to select the BIN. With the default front-button mapping, this is the second bottom-edge button.
+6. Wait up to two minutes while the firmware is validated.
+7. Press the logical `Right` button once to accept the final confirmation. With the default mapping, this is the fourth bottom-edge button. The final dialog deliberately uses `Left` for cancel and `Right` for confirm; pressing `Confirm` again does not start flashing.
+8. Do not press buttons, remove the SD card, or interrupt power for at least three minutes. The device restarts automatically after a successful flash.
+
+When the display is not working, connect a serial monitor if possible and look for `Recovery firmware mode`, `Selected`, `image validation`, and `SD firmware update complete` messages before repeating any step.
+
 There can be issues with broken cache or config. In this case, delete the `.crosspoint` directory on your SD card (or consider deleting only `settings.bin`, `state.bin`, or `epub_*` cache directories in the `.crosspoint/` folder).
