@@ -64,6 +64,18 @@ The philosophy of this fork is simple: keep the firmware fast, stable, and focus
 | Latest official commit incorporated | Release `1.5.0.22` retains the selected CrossPoint Reader changes incorporated through `1.5.0.21`, migrates the hardware layer to CrossPoint's pinned `freeink-sdk`, and restores the isolated SD recovery entry; FUI, settings-persistence, touch, and RTL rewrites remain intentionally deferred. |
 | Intentional upstream exclusions | Unsupported upstream theme variants such as `RoundedRaff` remain out of the supported vCodex theme list; other upstream UI/config changes are adapted selectively to preserve the existing X4 workflow. |
 
+## Froze in Update Complete (Soft Bricked?) — X3 recovery
+
+Some USB-locked Xteink X3 units with the newer UC8279d display controller appeared to remain frozen on the previous or `Update Complete` screen after installing older CPR-vCodex releases. The device was not actually bricked: the firmware continued running, but the unsupported display controller prevented the screen from refreshing.
+
+Affected users have successfully recovered devices running CPR-vCodex `1.5.0.3` and `1.5.0.9` by blindly opening the SD firmware updater and installing `1.5.0.22`, which detects both the original UC8253 and newer UC8279d X3 panels at boot.
+
+> [!IMPORTANT]
+> This emergency procedure is intended for an X3 whose display is already frozen on an older CPR-vCodex release. Do not use the blind sequence for a normally working device; use the visible `Settings > System > SD Card Firmware Update` flow instead. Back up the card first or use a separate clean FAT32 recovery card, and do not interrupt the device or remove the microSD while firmware validation or flashing is in progress.
+
+- [XTEINK X3 — vCodex Unfreeze procedure (PDF)](https://github.com/user-attachments/files/31417306/XTEINK.X3.-.vCodex.Unfreeze.procedure.pdf) consolidates the physical-button sequence, required waits, SD-card preparation, and final confirmation used for the successful recoveries.
+- [Froze in Update Complete (Soft Bricked?) — issue #193](https://github.com/franssjz/cpr-vcodex/issues/193) contains the complete investigation and the step-by-step discussion with affected users, including their questions, screenshots, clarifications, and successful recovery reports.
+
 ## Web tools
 
 - [Auto Flash](https://franssjz.github.io/cpr-vcodex/flash.html) installs the latest CPR-vCodex firmware from Chrome or Edge using Web Serial.
