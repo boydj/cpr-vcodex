@@ -69,6 +69,57 @@ class HalFileStream : public Stream {
   int peekedByte = -1;
 };
 
+// Serializes one scalar at a time so large stores do not need a full
+// JsonDocument in memory while the destination file is open. String values are
+// linked only for the duration of serializeJson(), avoiding a second copy.
+class JsonStreamWriter {
+ public:
+  explicit JsonStreamWriter(HalFile& file) : file_(file) {}
+
+  void literal(const char* text) {
+    if (!ok_ || !text) return;
+    const size_t length = std::strlen(text);
+    expectedBytes_ += length;
+    const size_t written = file_.write(text, length);
+    writtenBytes_ += written;
+    if (written != length) ok_ = false;
+  }
+
+  void value(const std::string& text) { writeScalar(JsonString(text.data(), text.size(), true)); }
+
+  template <typename T>
+  void value(const T value) {
+    writeScalar(value);
+  }
+
+  bool ok() const { return ok_; }
+  size_t expectedBytes() const { return expectedBytes_; }
+  size_t writtenBytes() const { return writtenBytes_; }
+
+ private:
+  template <typename T>
+  void writeScalar(const T value) {
+    if (!ok_) return;
+
+    JsonDocument scalar;
+    if (!scalar.set(value) || scalar.overflowed()) {
+      ok_ = false;
+      return;
+    }
+
+    const size_t expected = measureJson(scalar);
+    const size_t written = serializeJson(scalar, file_);
+    expectedBytes_ += expected;
+    writtenBytes_ += written;
+    if (written != expected) ok_ = false;
+  }
+
+  HalFile& file_;
+  size_t expectedBytes_ = 0;
+  size_t writtenBytes_ = 0;
+  bool ok_ = true;
+};
+
 bool copyVerifiedJsonTempToTarget(const char* moduleName, const char* tempPath, const char* targetPath,
                                   const size_t expectedSize) {
   HalFile source;
@@ -127,6 +178,34 @@ bool copyVerifiedJsonTempToTarget(const char* moduleName, const char* tempPath, 
   return true;
 }
 
+bool promoteJsonTempFile(const char* moduleName, const char* tempPath, const char* targetPath,
+                         const size_t expectedSize) {
+  if (Storage.exists(targetPath) && !Storage.remove(targetPath)) {
+    Storage.remove(tempPath);
+    LOG_ERR(moduleName, "Could not remove JSON file before replace: %s", targetPath);
+    CPR_VCODEX_LOG_EVENT(moduleName, std::string("Could not remove JSON file before replace: ") + targetPath);
+    return false;
+  }
+
+  if (!Storage.rename(tempPath, targetPath)) {
+    LOG_ERR(moduleName, "Could not rename JSON temp file to final path: %s; trying checked copy", targetPath);
+    CPR_VCODEX_LOG_EVENT(moduleName, std::string("JSON temp rename failed; trying checked copy for ") + targetPath);
+
+    if (!copyVerifiedJsonTempToTarget(moduleName, tempPath, targetPath, expectedSize)) {
+      LOG_ERR(moduleName, "Could not promote JSON temp file to final path: %s", targetPath);
+      CPR_VCODEX_LOG_EVENT(moduleName,
+                           std::string("Could not promote JSON temp file; kept it for recovery: ") + tempPath);
+      return false;
+    }
+
+    Storage.remove(tempPath);
+    LOG_DBG(moduleName, "Recovered JSON replacement via checked copy: %s", targetPath);
+    CPR_VCODEX_LOG_EVENT(moduleName, std::string("Recovered JSON replacement via checked copy: ") + targetPath);
+  }
+
+  return true;
+}
+
 bool saveJsonDocumentToFile(const char* moduleName, const char* path, const JsonDocument& doc) {
   if (!path || !*path) {
     LOG_ERR(moduleName, "Missing JSON path for write");
@@ -173,30 +252,7 @@ bool saveJsonDocumentToFile(const char* moduleName, const char* path, const Json
     return false;
   }
 
-  if (Storage.exists(targetPath) && !Storage.remove(targetPath)) {
-    Storage.remove(tempPath);
-    LOG_ERR(moduleName, "Could not remove JSON file before replace: %s", targetPath);
-    CPR_VCODEX_LOG_EVENT(moduleName, std::string("Could not remove JSON file before replace: ") + targetPath);
-    return false;
-  }
-
-  if (!Storage.rename(tempPath, targetPath)) {
-    LOG_ERR(moduleName, "Could not rename JSON temp file to final path: %s; trying checked copy", targetPath);
-    CPR_VCODEX_LOG_EVENT(moduleName, std::string("JSON temp rename failed; trying checked copy for ") + targetPath);
-
-    if (!copyVerifiedJsonTempToTarget(moduleName, tempPath, targetPath, expected)) {
-      LOG_ERR(moduleName, "Could not promote JSON temp file to final path: %s", targetPath);
-      CPR_VCODEX_LOG_EVENT(moduleName,
-                           std::string("Could not promote JSON temp file; kept it for recovery: ") + tempPath);
-      return false;
-    }
-
-    Storage.remove(tempPath);
-    LOG_DBG(moduleName, "Recovered JSON replacement via checked copy: %s", targetPath);
-    CPR_VCODEX_LOG_EVENT(moduleName, std::string("Recovered JSON replacement via checked copy: ") + targetPath);
-  }
-
-  return true;
+  return promoteJsonTempFile(moduleName, tempPath, targetPath, expected);
 }
 
 bool loadJsonDocumentFromFile(const char* moduleName, const char* path, JsonDocument& doc) {
@@ -1427,8 +1483,8 @@ bool JsonSettingsIO::loadWifi(WifiCredentialStore& store, const char* json, bool
 
     bool ok = false;
     bool tooLong = false;
-    cred.password = obfuscation::deobfuscateFromBase64(obj["password_obf"] | "", store.MAX_PASSWORD_LENGTH, &ok,
-                                                       &tooLong);
+    cred.password =
+        obfuscation::deobfuscateFromBase64(obj["password_obf"] | "", store.MAX_PASSWORD_LENGTH, &ok, &tooLong);
     if (tooLong) {
       LOG_ERR("WCS", "Discarding oversized password for %s", cred.ssid.c_str());
       resave = true;
@@ -1585,68 +1641,146 @@ bool JsonSettingsIO::loadFavorites(FavoritesStore& store, const char* json) {
 // ---- ReadingStatsStore ----
 
 bool JsonSettingsIO::saveReadingStats(const ReadingStatsStore& store, const char* path) {
-  JsonDocument doc;
-  doc["formatVersion"] = 6;
+  if (!path || !*path) {
+    LOG_ERR("RST", "Missing JSON path for write");
+    CPR_VCODEX_LOG_EVENT("RST", "Missing JSON path for write");
+    return false;
+  }
 
-  JsonArray days = doc["readingDays"].to<JsonArray>();
+  char tempPath[256];
+  const int tempPathLength = snprintf(tempPath, sizeof(tempPath), "%s.tmp", path);
+  if (tempPathLength < 0 || static_cast<size_t>(tempPathLength) >= sizeof(tempPath)) {
+    LOG_ERR("RST", "JSON path is too long for atomic write: %s", path);
+    CPR_VCODEX_LOG_EVENT("RST", std::string("JSON path is too long for atomic write: ") + path);
+    return false;
+  }
+
+  if (Storage.exists(tempPath)) {
+    Storage.remove(tempPath);
+  }
+
+  HalFile file;
+  if (!Storage.openFileForWrite("RST", tempPath, file)) {
+    LOG_ERR("RST", "Could not open JSON file for write: %s", tempPath);
+    CPR_VCODEX_LOG_EVENT("RST", std::string("Could not open JSON temp file for write: ") + tempPath);
+    return false;
+  }
+
+  JsonStreamWriter writer(file);
+  writer.literal("{\"formatVersion\":6,\"readingDays\":[");
+  bool first = true;
   for (const auto& day : store.getReadingDays()) {
-    JsonObject dayObj = days.add<JsonObject>();
-    dayObj["dayOrdinal"] = day.dayOrdinal;
-    dayObj["readingMs"] = day.readingMs;
+    if (!first) writer.literal(",");
+    first = false;
+    writer.literal("{\"dayOrdinal\":");
+    writer.value(day.dayOrdinal);
+    writer.literal(",\"readingMs\":");
+    writer.value(day.readingMs);
+    writer.literal("}");
   }
 
-  JsonArray legacyDays = doc["legacyReadingDays"].to<JsonArray>();
+  writer.literal("],\"legacyReadingDays\":[");
+  first = true;
   for (const auto& day : store.legacyReadingDays) {
-    JsonObject dayObj = legacyDays.add<JsonObject>();
-    dayObj["dayOrdinal"] = day.dayOrdinal;
-    dayObj["readingMs"] = day.readingMs;
+    if (!first) writer.literal(",");
+    first = false;
+    writer.literal("{\"dayOrdinal\":");
+    writer.value(day.dayOrdinal);
+    writer.literal(",\"readingMs\":");
+    writer.value(day.readingMs);
+    writer.literal("}");
   }
 
-  JsonArray sessionLog = doc["sessionLog"].to<JsonArray>();
+  writer.literal("],\"sessionLog\":[");
+  first = true;
   for (const auto& session : store.getSessionLog()) {
-    JsonObject sessionObj = sessionLog.add<JsonObject>();
-    sessionObj["dayOrdinal"] = session.dayOrdinal;
-    sessionObj["sessionMs"] = session.sessionMs;
+    if (!first) writer.literal(",");
+    first = false;
+    writer.literal("{\"dayOrdinal\":");
+    writer.value(session.dayOrdinal);
+    writer.literal(",\"sessionMs\":");
+    writer.value(session.sessionMs);
     if (!session.bookId.empty()) {
-      sessionObj["bookId"] = session.bookId;
+      writer.literal(",\"bookId\":");
+      writer.value(session.bookId);
     }
     if (!session.path.empty()) {
-      sessionObj["path"] = session.path;
+      writer.literal(",\"path\":");
+      writer.value(session.path);
     }
+    writer.literal("}");
   }
 
-  JsonArray books = doc["books"].to<JsonArray>();
+  writer.literal("],\"books\":[");
+  first = true;
   for (const auto& book : store.getBooks()) {
-    JsonObject obj = books.add<JsonObject>();
-    obj["bookId"] = book.bookId;
-    obj["path"] = book.path;
-    JsonArray knownPaths = obj["knownPaths"].to<JsonArray>();
+    if (!first) writer.literal(",");
+    first = false;
+    writer.literal("{\"bookId\":");
+    writer.value(book.bookId);
+    writer.literal(",\"path\":");
+    writer.value(book.path);
+    writer.literal(",\"knownPaths\":[");
+    bool firstKnownPath = true;
     for (const auto& knownPath : book.knownPaths) {
-      knownPaths.add(knownPath);
+      if (!firstKnownPath) writer.literal(",");
+      firstKnownPath = false;
+      writer.value(knownPath);
     }
-    obj["title"] = book.title;
-    obj["author"] = book.author;
-    obj["coverBmpPath"] = book.coverBmpPath;
-    obj["chapterTitle"] = book.chapterTitle;
-    obj["totalReadingMs"] = book.totalReadingMs;
-    obj["sessions"] = book.sessions;
-    obj["lastSessionMs"] = book.lastSessionMs;
-    obj["firstReadAt"] = book.firstReadAt;
-    obj["lastReadAt"] = book.lastReadAt;
-    obj["completedAt"] = book.completedAt;
-    obj["lastProgressPercent"] = book.lastProgressPercent;
-    obj["chapterProgressPercent"] = book.chapterProgressPercent;
-    obj["completed"] = book.completed;
-
-    JsonArray bookDays = obj["readingDays"].to<JsonArray>();
+    writer.literal("],\"title\":");
+    writer.value(book.title);
+    writer.literal(",\"author\":");
+    writer.value(book.author);
+    writer.literal(",\"coverBmpPath\":");
+    writer.value(book.coverBmpPath);
+    writer.literal(",\"chapterTitle\":");
+    writer.value(book.chapterTitle);
+    writer.literal(",\"totalReadingMs\":");
+    writer.value(book.totalReadingMs);
+    writer.literal(",\"sessions\":");
+    writer.value(book.sessions);
+    writer.literal(",\"lastSessionMs\":");
+    writer.value(book.lastSessionMs);
+    writer.literal(",\"firstReadAt\":");
+    writer.value(book.firstReadAt);
+    writer.literal(",\"lastReadAt\":");
+    writer.value(book.lastReadAt);
+    writer.literal(",\"completedAt\":");
+    writer.value(book.completedAt);
+    writer.literal(",\"lastProgressPercent\":");
+    writer.value(book.lastProgressPercent);
+    writer.literal(",\"chapterProgressPercent\":");
+    writer.value(book.chapterProgressPercent);
+    writer.literal(",\"completed\":");
+    writer.value(book.completed);
+    writer.literal(",\"readingDays\":[");
+    bool firstBookDay = true;
     for (const auto& day : book.readingDays) {
-      JsonObject dayObj = bookDays.add<JsonObject>();
-      dayObj["dayOrdinal"] = day.dayOrdinal;
-      dayObj["readingMs"] = day.readingMs;
+      if (!firstBookDay) writer.literal(",");
+      firstBookDay = false;
+      writer.literal("{\"dayOrdinal\":");
+      writer.value(day.dayOrdinal);
+      writer.literal(",\"readingMs\":");
+      writer.value(day.readingMs);
+      writer.literal("}");
     }
+    writer.literal("]}");
+  }
+  writer.literal("]}");
+
+  file.flush();
+  file.close();
+  if (!writer.ok() || writer.writtenBytes() == 0 || writer.writtenBytes() != writer.expectedBytes()) {
+    Storage.remove(tempPath);
+    LOG_ERR("RST", "Incomplete JSON write for %s: %u/%u bytes", path, static_cast<unsigned>(writer.writtenBytes()),
+            static_cast<unsigned>(writer.expectedBytes()));
+    CPR_VCODEX_LOG_EVENT("RST", std::string("Incomplete JSON write for ") + path + ": " +
+                                    std::to_string(writer.writtenBytes()) + "/" +
+                                    std::to_string(writer.expectedBytes()) + " bytes");
+    return false;
   }
 
-  return saveJsonDocumentToFile("RST", path, doc);
+  return promoteJsonTempFile("RST", tempPath, path, writer.writtenBytes());
 }
 
 bool JsonSettingsIO::loadReadingStatsDocument(ReadingStatsStore& store, const JsonDocument& doc) {

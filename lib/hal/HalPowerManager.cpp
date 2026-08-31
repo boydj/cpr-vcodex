@@ -4,6 +4,7 @@
 #include <Logging.h>
 #include <PowerManager.h>
 #include <WiFi.h>
+#include <Wire.h>
 #include <esp_sleep.h>
 #include <soc/soc_caps.h>
 
@@ -14,7 +15,16 @@
 HalPowerManager powerManager;  // Singleton instance
 
 void HalPowerManager::begin() {
-  if (BoardConfig::ACTIVE.batteryAdc >= 0) {
+  const auto& gauge = BoardConfig::ACTIVE.batteryGauge;
+  if (gauge.gaugeAddr != 0) {
+    // The X3/X4 fingerprint probe releases Wire before selecting the runtime
+    // board profile. Reinitialize the X3 sensor bus before the tilt sensor and
+    // clock begin; otherwise their first reads fail and both settings vanish.
+    if (!Wire.begin(gauge.i2cSda, gauge.i2cScl, gauge.i2cHz)) {
+      LOG_ERR("PWR", "Failed to initialize I2C sensor bus");
+    }
+    Wire.setTimeOut(6);
+  } else if (BoardConfig::ACTIVE.batteryAdc >= 0) {
     pinMode(BoardConfig::ACTIVE.batteryAdc, INPUT);
   }
   normalFreq = getCpuFrequencyMhz();

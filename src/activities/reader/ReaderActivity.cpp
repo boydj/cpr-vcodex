@@ -29,11 +29,6 @@ bool ReaderActivity::isTxtFile(const std::string& path) {
 bool ReaderActivity::isBmpFile(const std::string& path) { return FsHelpers::hasBmpExtension(path); }
 
 std::unique_ptr<Epub> ReaderActivity::loadEpub(const std::string& path) {
-  if (!Storage.exists(path.c_str())) {
-    LOG_ERR("READER", "File does not exist: %s", path.c_str());
-    return nullptr;
-  }
-
   auto epub = std::unique_ptr<Epub>(new Epub(path, "/.crosspoint"));
   const bool uncached = !Storage.exists((epub->getCachePath() + "/book.bin").c_str());
   if (uncached) GUI.drawPopup(renderer, tr(STR_INDEXING));
@@ -52,11 +47,6 @@ std::unique_ptr<Epub> ReaderActivity::loadEpub(const std::string& path) {
 }
 
 std::unique_ptr<Xtc> ReaderActivity::loadXtc(const std::string& path) {
-  if (!Storage.exists(path.c_str())) {
-    LOG_ERR("READER", "File does not exist: %s", path.c_str());
-    return nullptr;
-  }
-
   auto xtc = std::unique_ptr<Xtc>(new Xtc(path, "/.crosspoint"));
   if (xtc->load()) {
     return xtc;
@@ -67,11 +57,6 @@ std::unique_ptr<Xtc> ReaderActivity::loadXtc(const std::string& path) {
 }
 
 std::unique_ptr<Txt> ReaderActivity::loadTxt(const std::string& path) {
-  if (!Storage.exists(path.c_str())) {
-    LOG_ERR("READER", "File does not exist: %s", path.c_str());
-    return nullptr;
-  }
-
   auto txt = std::unique_ptr<Txt>(new Txt(path, "/.crosspoint"));
   if (txt->load()) {
     return txt;

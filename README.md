@@ -52,7 +52,7 @@ The philosophy of this fork is simple: keep the firmware fast, stable, and focus
 |---|---|
 | Project | `CPR-vCodex` |
 | Device | `Xteink X4` (personally tested); `Xteink X3` UC8253/UC8279d runtime support, with broader physical feedback requested |
-| Current release (CPR-vCodex) build | [`1.5.0.22-cpr-vcodex`](https://github.com/franssjz/cpr-vcodex/releases/tag/1.5.0.22-cpr-vcodex) |
+| Current release (CPR-vCodex) build | [`1.5.0.23-cpr-vcodex`](https://github.com/franssjz/cpr-vcodex/releases/tag/1.5.0.23-cpr-vcodex) |
 | Release hardware stack | `freeink-sdk` [`a485dc46`](https://github.com/Free-Ink/freeink-sdk/commit/a485dc46ef5fb2283e4bdb674002ddbef97a9268), with runtime X3/X4 and X3 UC8253/UC8279d detection. |
 | Latest SD font package | [`sd-fonts-m1-b4`](https://github.com/franssjz/cpr-vcodex/releases/tag/sd-fonts-m1-b4) |
 | Changelog | [CHANGELOG.md](./CHANGELOG.md) |
@@ -78,7 +78,7 @@ Affected users have successfully recovered devices running CPR-vCodex `1.5.0.3` 
 
 ## Web tools
 
-- [Auto Flash](https://franssjz.github.io/cpr-vcodex/flash.html) installs the latest CPR-vCodex firmware from Chrome or Edge using Web Serial.
+- [Auto Flash](https://franssjz.github.io/cpr-vcodex/flash.html) installs the latest CPR-vCodex firmware on ESP32-C3 Xteink X3 and X4 devices from Chrome or Edge using Web Serial. X4 Pro is a distinct ESP32-S3 device and is not currently supported; the flasher recognizes its partition table and stops before writing.
 - [Reading Stats Editor](https://franssjz.github.io/cpr-vcodex/reading-stats-editor/) edits exported reading stats locally in the browser. No upload, no server.
 - Device web settings treat the KOReader password as write-only: the stored value is never returned to the browser, which only indicates that a password is already configured.
 

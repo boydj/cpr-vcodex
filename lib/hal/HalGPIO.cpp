@@ -1,5 +1,5 @@
-#include <HalGPIO.h>
 #include <BoardConfig.h>
+#include <HalGPIO.h>
 #include <Logging.h>
 #include <PowerManager.h>
 #include <Preferences.h>
@@ -45,7 +45,7 @@ bool readBQ27220CurrentMA(int16_t* outCurrent) {
 namespace {
 constexpr char HW_NAMESPACE[] = "cphw";
 constexpr char NVS_KEY_DEV_OVERRIDE[] = "dev_ovr";  // 0=auto, 1=x4, 2=x3
-constexpr char NVS_KEY_DEV_CACHED[] = "dev_det";    // 0=unknown, 1=x4, 2=x3
+constexpr char NVS_KEY_DEV_CACHED[] = "dev_det";    // 0=unknown, 2=x3; legacy 1=x4 is re-probed
 
 enum class NvsDeviceValue : uint8_t { Unknown = 0, X4 = 1, X3 = 2 };
 
@@ -85,9 +85,17 @@ HalGPIO::DeviceType detectDeviceTypeWithFingerprint() {
   }
 
   const NvsDeviceValue cachedValue = readNvsDeviceValue(NVS_KEY_DEV_CACHED, NvsDeviceValue::Unknown);
-  if (cachedValue == NvsDeviceValue::X3 || cachedValue == NvsDeviceValue::X4) {
-    LOG_INF("HW", "Using cached device type: %s", cachedValue == NvsDeviceValue::X3 ? "X3" : "X4");
-    return nvsToDeviceType(cachedValue);
+  if (cachedValue == NvsDeviceValue::X3) {
+    LOG_INF("HW", "Using cached device type: X3");
+    return HalGPIO::DeviceType::X3;
+  }
+  if (cachedValue == NvsDeviceValue::X4) {
+    // An X3 can temporarily return no I2C responses during early boot. Older
+    // firmware persisted that absence as X4 forever, hiding its RTC/clock and
+    // selecting the wrong board profile. Discard that negative cache before
+    // probing so affected devices recover automatically after updating.
+    LOG_INF("HW", "Re-probing legacy cached X4 device type");
+    writeNvsDeviceValue(NVS_KEY_DEV_CACHED, NvsDeviceValue::Unknown);
   }
 
   // Use FreeInk's canonical two-pass X3/X4 fingerprint. Inconclusive results
@@ -95,8 +103,7 @@ HalGPIO::DeviceType detectDeviceTypeWithFingerprint() {
   uint8_t score1 = 0;
   uint8_t score2 = 0;
   const freeink::XteinkVerdict verdict = freeink::detectXteinkVerdict(&score1, &score2);
-  LOG_INF("HW", "Xteink probe scores: pass1=%u pass2=%u verdict=%u", score1, score2,
-          static_cast<unsigned>(verdict));
+  LOG_INF("HW", "Xteink probe scores: pass1=%u pass2=%u verdict=%u", score1, score2, static_cast<unsigned>(verdict));
 
   if (verdict == freeink::XteinkVerdict::X3Confirmed) {
     writeNvsDeviceValue(NVS_KEY_DEV_CACHED, NvsDeviceValue::X3);
@@ -104,7 +111,9 @@ HalGPIO::DeviceType detectDeviceTypeWithFingerprint() {
   }
 
   if (verdict == freeink::XteinkVerdict::X4Confirmed) {
-    writeNvsDeviceValue(NVS_KEY_DEV_CACHED, NvsDeviceValue::X4);
+    // Cache only the positive X3 fingerprint. X4 is inferred from absence of
+    // X3-only peripherals, which is safe for this boot but not durable proof:
+    // a transient I2C failure on an X3 must get another chance next boot.
     return HalGPIO::DeviceType::X4;
   }
 
@@ -158,9 +167,7 @@ unsigned long HalGPIO::getHeldTime() const { return inputMgr.getHeldTime(); }
 
 unsigned long HalGPIO::getPowerButtonHeldTime() const { return inputMgr.getPowerButtonHeldTime(); }
 
-void HalGPIO::startDeepSleep() {
-  freeink::PowerManager::deepSleepUntilPowerButton();
-}
+void HalGPIO::startDeepSleep() { freeink::PowerManager::deepSleepUntilPowerButton(); }
 
 void HalGPIO::verifyPowerButtonWakeup(uint16_t requiredDurationMs, bool shortPressAllowed) {
   if (shortPressAllowed) {

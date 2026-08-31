@@ -7,6 +7,8 @@ add_executable(reader_regressions_test
   TextBlockSerializationTest.cpp
   TokenBoundaryTest.cpp
   ${REPO_ROOT}/lib/Epub/Epub/blocks/TextBlock.cpp
+  ${REPO_ROOT}/lib/Epub/Epub/converters/ImageDimsProbe.cpp
+  ${REPO_ROOT}/lib/Epub/Epub/converters/ImageToFramebufferDecoder.cpp
   ${REPO_ROOT}/lib/FsHelpers/FsHelpers.cpp
   ${REPO_ROOT}/lib/Epub/Epub/hyphenation/HyphenationCommon.cpp
   ${REPO_ROOT}/lib/Utf8/Utf8.cpp

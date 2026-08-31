@@ -33,7 +33,8 @@ namespace {
 //      valid non-stretching line-break opportunities.
 // v46: TextBlock records layout-inserted hyphens for reflow-stable highlights.
 // v47: image format/size policy changed; rebuild cached placeholder decisions.
-constexpr uint8_t SECTION_FILE_VERSION = 47;
+// v48: inline image metadata probing no longer falls back solely on fragmented heap.
+constexpr uint8_t SECTION_FILE_VERSION = 48;
 // Written into the version field while a build is in progress; patched to
 // SECTION_FILE_VERSION only when the build is finalized. An abandoned /
 // crash-interrupted .bin therefore carries version 0, which loadSectionFile rejects
@@ -1034,7 +1035,7 @@ std::optional<uint32_t> Section::getVisibleTextOffsetForPage(const uint16_t page
 }
 
 std::optional<uint16_t> Section::getPageForVisibleTextOffset(const uint32_t offset,
-                                                              const bool preferFirstAtOffset) const {
+                                                             const bool preferFirstAtOffset) const {
   if (build_ && !build_->lut.empty() && offset <= build_->lut.back().visibleTextOffset) {
     return VisibleTextPageLookup::find(build_->lut, offset, preferFirstAtOffset);
   }
@@ -1055,8 +1056,7 @@ std::optional<uint16_t> Section::getPageForVisibleTextOffset(const uint32_t offs
   f.seek(HEADER_SIZE - sizeof(uint32_t));
   uint32_t visibleLutOffset = 0;
   serialization::readPod(f, visibleLutOffset);
-  if (visibleLutOffset < HEADER_SIZE ||
-      visibleLutOffset + static_cast<uint32_t>(count) * sizeof(uint32_t) > f.size()) {
+  if (visibleLutOffset < HEADER_SIZE || visibleLutOffset + static_cast<uint32_t>(count) * sizeof(uint32_t) > f.size()) {
     return std::nullopt;
   }
 

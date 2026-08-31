@@ -403,8 +403,7 @@ void ChapterHtmlSlimParser::collectReferencedAnchors() {
     // scan from polling the heap for every href.
     if (!referencedAnchors.empty() && (referencedAnchors.size() & 0x0F) == 0) {
       const auto heap = MemoryBudget::snapshot();
-      if (!MemoryBudget::hasHeap(heap, SOFT_MIN_FREE_HEAP_FOR_TEXT_LAYOUT,
-                                 SOFT_MIN_MAX_ALLOC_FOR_TEXT_LAYOUT)) {
+      if (!MemoryBudget::hasHeap(heap, SOFT_MIN_FREE_HEAP_FOR_TEXT_LAYOUT, SOFT_MIN_MAX_ALLOC_FOR_TEXT_LAYOUT)) {
         LOG_DBG("EHP", "Stopped anchor pre-scan to preserve layout heap (anchors=%u free=%u maxAlloc=%u)",
                 static_cast<unsigned>(referencedAnchors.size()), heap.freeHeap, heap.maxAllocHeap);
         break;
@@ -775,11 +774,9 @@ void ChapterHtmlSlimParser::emitBufferedTableAsFragments(BufferedTable& table) {
       destCell.isHeader = sourceCell.isHeader;
 
       if (sourceCell.text) {
-        sourceCell.text->layoutAndExtractLines(
-            renderer, fontId, innerColumnWidth,
-            [&destCell](const std::shared_ptr<TextBlock>& textBlock, const uint32_t) {
-              destCell.lines.push_back(textBlock);
-            });
+        sourceCell.text->layoutAndExtractLines(renderer, fontId, innerColumnWidth,
+                                               [&destCell](const std::shared_ptr<TextBlock>& textBlock,
+                                                           const uint32_t) { destCell.lines.push_back(textBlock); });
       }
 
       for (const auto& footnotePair : sourceCell.footnotes) {
@@ -1054,8 +1051,7 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
   if (VisibleTextUtils::equalsTag(name, "body")) {
     self->insideBody = true;
   }
-  if (self->insideBody &&
-      (self->nonVisibleTextDepth > 0 || VisibleTextUtils::isNonVisibleElement(name))) {
+  if (self->insideBody && (self->nonVisibleTextDepth > 0 || VisibleTextUtils::isNonVisibleElement(name))) {
     self->nonVisibleTextDepth++;
   }
 
@@ -1284,20 +1280,22 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
           if (MemoryBudget::shouldReleaseSdFontCachesForEpubInlineImage(releaseHeapBefore) &&
               self->renderer.releaseSdCardFontForLowMemory(self->fontId)) {
             const auto releaseHeapAfter = MemoryBudget::snapshot();
-            LOG_DBG("EHP", "Released SD font caches before image extraction: free=%u->%u maxAlloc=%u->%u src=%s",
+            LOG_DBG("EHP", "Released SD font caches before image metadata probe: free=%u->%u maxAlloc=%u->%u src=%s",
                     releaseHeapBefore.freeHeap, releaseHeapAfter.freeHeap, releaseHeapBefore.maxAllocHeap,
                     releaseHeapAfter.maxAllocHeap, src.c_str());
           }
 
           const auto heapBeforeImage = MemoryBudget::snapshot();
-          LOG_DBG("EHP", "Heap before image extraction: free=%u maxAlloc=%u src=%s", heapBeforeImage.freeHeap,
+          LOG_DBG("EHP", "Heap before image metadata probe: free=%u maxAlloc=%u src=%s", heapBeforeImage.freeHeap,
                   heapBeforeImage.maxAllocHeap, src.c_str());
-          const bool canProcessImage = MemoryBudget::hasHeapForEpubInlineImage("EHP", src.c_str());
-          if (!canProcessImage) {
-            self->lowMemoryImageFallback = true;
-          }
 
-          if (canProcessImage) {
+          // Dimension discovery now streams through a small header probe and image
+          // extraction/decoding is deferred until the page is rendered. Do not apply
+          // the old decoder-sized heap gate here: on a fragmented but otherwise
+          // healthy heap it replaced valid images with their alt text before the
+          // lightweight probe had a chance to run. The fallback decoder retains its
+          // own allocation guard for formats the probe cannot identify.
+          {
             // Resolve the image path relative to the HTML file
             std::string resolvedPath = FsHelpers::normalisePath(FsHelpers::decodeUriEscapes(self->contentBase + src));
 
@@ -1665,8 +1663,7 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
       self->updateEffectiveInlineStyle();
 
       if (strcmp(name, "li") == 0) {
-        self->currentTextBlock->addWord("\xe2\x80\xa2", EpdFontFamily::REGULAR, false, false,
-                                        self->visibleTextOffset);
+        self->currentTextBlock->addWord("\xe2\x80\xa2", EpdFontFamily::REGULAR, false, false, self->visibleTextOffset);
         self->listItemBulletOnly = true;
       }
     }
@@ -2250,8 +2247,7 @@ bool ChapterHtmlSlimParser::beginParse() {
   }
 
   const auto anchorScanHeap = MemoryBudget::snapshot();
-  if (MemoryBudget::hasHeap(anchorScanHeap, SOFT_MIN_FREE_HEAP_FOR_TEXT_LAYOUT,
-                            SOFT_MIN_MAX_ALLOC_FOR_TEXT_LAYOUT)) {
+  if (MemoryBudget::hasHeap(anchorScanHeap, SOFT_MIN_FREE_HEAP_FOR_TEXT_LAYOUT, SOFT_MIN_MAX_ALLOC_FOR_TEXT_LAYOUT)) {
     collectReferencedAnchors();
   } else {
     referencedAnchors.clear();
@@ -2488,9 +2484,7 @@ void ChapterHtmlSlimParser::makePages() {
 
   currentTextBlock->layoutAndExtractLines(
       renderer, fontId, effectiveWidth,
-      [this](const std::shared_ptr<TextBlock>& textBlock, const uint32_t offset) {
-        addLineToPage(textBlock, offset);
-      });
+      [this](const std::shared_ptr<TextBlock>& textBlock, const uint32_t offset) { addLineToPage(textBlock, offset); });
 
   // Fallback: transfer any remaining pending footnotes to current page.
   // Normally addLineToPage handles this via word-index tracking, but this catches
