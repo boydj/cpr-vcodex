@@ -1879,14 +1879,25 @@ bool JsonSettingsIO::loadReadingStatsDocument(ReadingStatsStore& store, const Js
 
   if (formatVersion >= 4) {
     for (JsonObjectConst sessionObj : doc["sessionLog"].as<JsonArrayConst>()) {
-      ReadingSessionLogEntry session;
-      session.dayOrdinal = sessionObj["dayOrdinal"] | static_cast<uint32_t>(0);
-      session.sessionMs = sessionObj["sessionMs"] | static_cast<uint32_t>(0);
-      session.bookId = sessionObj["bookId"] | std::string("");
-      session.path = BookIdentity::normalizePath(sessionObj["path"] | std::string(""));
-      if (session.dayOrdinal != 0 && session.sessionMs != 0) {
-        store.sessionLog.push_back(session);
+      const uint32_t dayOrdinal = sessionObj["dayOrdinal"] | static_cast<uint32_t>(0);
+      const uint32_t sessionMs = sessionObj["sessionMs"] | static_cast<uint32_t>(0);
+      if (dayOrdinal == 0 || sessionMs == 0) continue;
+
+      if (store.sessionLog.size() >= ReadingSessionLog::MAX_ENTRIES) {
+        store.dirty = true;
       }
+      ReadingSessionLog::makeRoomForAppend(store.sessionLog);
+
+      ReadingSessionLogEntry session;
+      session.dayOrdinal = dayOrdinal;
+      session.sessionMs = sessionMs;
+      session.bookId = sessionObj["bookId"] | std::string("");
+      if (session.bookId.empty()) {
+        session.path = BookIdentity::normalizePath(sessionObj["path"] | std::string(""));
+      } else if (!sessionObj["path"].isNull()) {
+        store.dirty = true;
+      }
+      store.sessionLog.push_back(std::move(session));
     }
   } else {
     store.dirty = true;
