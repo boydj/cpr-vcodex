@@ -154,7 +154,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- Board: `{report.get('board', 'x4')}` ({report.get('chipFamily', 'ESP32-C3')}, `{report.get('environment', '')}`)",
         f"- Packaged firmware: {firmware_display}",
         f"- App slot: {format_bytes(slot_size)}",
-        f"- Flash budget: {flash['budgetPercent']:.1f}% of slot ({budget_status})",
+        f"- Flash usage: {flash['slotPercent']:.1f}% of slot, budget {flash['budgetPercent']:.1f}% ({budget_status})",
         "",
         "| Area | Used | Total | Usage | Remaining |",
         "|---|---:|---:|---:|---:|",
