@@ -29,7 +29,9 @@ class AppsActivity final : public UiListActivity {
 
  public:
   explicit AppsActivity(GfxRenderer& renderer, MappedInputManager& mappedInput)
-      : UiListActivity("Apps", renderer, mappedInput) {}
+      : UiListActivity("Apps", renderer, mappedInput) {
+    chromeNeedsListLayout = true;  // header shows "<page>/<pages> | <count>"
+  }
 
   void onEnter() override;
   void onExit() override;

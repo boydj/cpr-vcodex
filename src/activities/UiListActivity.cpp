@@ -150,6 +150,13 @@ void UiListActivity::drawFooter() {
 
 void UiListActivity::render(RenderLock&&) {
   renderer.clearScreen();
+  if (chromeNeedsListLayout && !activeNav().trusts(listCount())) {
+    // Measuring pass: lets drawChrome() see the real rows-per-page on the
+    // first paint (see chromeNeedsListLayout). First entry only; later
+    // paints trust the recorded layout.
+    renderUi();
+    renderer.clearScreen();
+  }
   drawChrome();
   renderUi();
   // Wrapped labels grow rows, so fewer rows can fit than the fixed-height

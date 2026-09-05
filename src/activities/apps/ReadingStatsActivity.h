@@ -35,7 +35,9 @@ class ReadingStatsActivity final : public UiListActivity {
 
  public:
   explicit ReadingStatsActivity(GfxRenderer& renderer, MappedInputManager& mappedInput)
-      : UiListActivity("ReadingStats", renderer, mappedInput, /*wantsTouchLongPress=*/true) {}
+      : UiListActivity("ReadingStats", renderer, mappedInput, /*wantsTouchLongPress=*/true) {
+    chromeNeedsListLayout = true;  // sub-header shows "<page>/<pages>"
+  }
 
   void onEnter() override;
   void onExit() override;

@@ -80,6 +80,11 @@ class UiListActivity : public Activity, protected UiAppHost {
   // Selection + viewport (selected/top/visibleRows/followOnBuild). Access via
   // activeNav() in shared code; `nav` is the single-list default storage.
   freeink::ui::ListNav nav;
+  // Set by subclasses whose drawChrome() derives a page counter from the rows
+  // the list actually draws (ListNav::pageRowsFor). Before the first build
+  // ListNav only has its fixed-height estimate, so render() runs one
+  // measuring build first; otherwise the header shows "1/<count>" on entry.
+  bool chromeNeedsListLayout = false;
   ButtonNavigator buttonNavigator;
 
  private:

@@ -22,3 +22,9 @@ upload = upload
 download = download
 bookmark = bookmark
 usb = usb
+# Fork app shortcuts (Achievements, Favorites, Recent Books, Settings, Transfer).
+trophy = trophy
+heart = heart
+history = rotate-ccw-clock
+settings-2 = settings-2
+arrow-right-left = arrow-right-left

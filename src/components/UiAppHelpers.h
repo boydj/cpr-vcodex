@@ -101,6 +101,16 @@ inline freeink::ui::BitmapRef listIconFor(const UIIcon icon, const int size = 24
         return freeink::ui::bitmapFromIcon(icon_usb_32);
       case UIIcon::Bookmark:
         return freeink::ui::bitmapFromIcon(icon_bookmark_32);
+      case UIIcon::Trophy:
+        return freeink::ui::bitmapFromIcon(icon_trophy_32);
+      case UIIcon::Heart:
+        return freeink::ui::bitmapFromIcon(icon_heart_32);
+      case UIIcon::Recent:
+        return freeink::ui::bitmapFromIcon(icon_history_32);
+      case UIIcon::Settings:
+        return freeink::ui::bitmapFromIcon(icon_settings_2_32);
+      case UIIcon::Transfer:
+        return freeink::ui::bitmapFromIcon(icon_arrow_right_left_32);
       default:
         return {};
     }
@@ -126,6 +136,10 @@ inline freeink::ui::BitmapRef listIconFor(const UIIcon icon, const int size = 24
       return freeink::ui::bitmapFromIcon(icon_usb_24);
     case UIIcon::Bookmark:
       return freeink::ui::bitmapFromIcon(icon_bookmark_24);
+    case UIIcon::Trophy:
+      return freeink::ui::bitmapFromIcon(icon_trophy_24);
+    case UIIcon::Heart:
+      return freeink::ui::bitmapFromIcon(icon_heart_24);
     default:
       return {};
   }
