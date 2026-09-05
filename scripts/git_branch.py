@@ -277,6 +277,24 @@ def split_env_name(env_name):
 
 def inject_version(env):
     env_name = env["PIOENV"]
+    if env_name.startswith("simulator"):
+        # Desktop simulator builds: stable version string, no release/dev counters.
+        project_dir = env["PROJECT_DIR"]
+        base_version = get_base_version(project_dir)
+        short_sha = get_git_short_sha(project_dir)
+        version_string = f"{base_version}.sim-{short_sha}"
+        write_version_artifacts(
+            project_dir,
+            environment=env_name,
+            version_string=version_string,
+            base_version=base_version,
+            build_counter=0,
+            release_number=0,
+            build_kind="simulator",
+        )
+        env.Append(CPPDEFINES=[("CPR_VCODEX_BUILD_KIND_SIMULATOR", 1)])
+        print(f"CPR-vCodex build version: {version_string}")
+        return
     if env_name not in SUPPORTED_ENVS:
         return
 
