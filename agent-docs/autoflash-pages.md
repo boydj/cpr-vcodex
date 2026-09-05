@@ -39,7 +39,7 @@ a `devices.x4pro` entry.
   release bin (absent until a release ships the asset).
 - `docs/index.html`: site entry point.
 - `scripts/sync_autoflash_firmware.py`: pulls latest release metadata and bins.
-- `.github/workflows/sync_autoflash_firmware.yml`: manual sync; stages
+- `.github/workflows/sync_autoflash_firmware.yml`: manual sync (its `branch` input names the branch GitHub Pages deploys from, default `master`); stages
   `docs/firmware` as a directory so new or removed copies are committed.
 
 ## Manifest Schema
