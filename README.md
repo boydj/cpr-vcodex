@@ -59,7 +59,7 @@ The philosophy of this fork is simple: keep the firmware fast, stable, and focus
 | Current release sync | Selected CrossPoint Reader 1.5 changes reviewed through `master` [`95a847c7`](https://github.com/crosspoint-reader/crosspoint-reader/commit/95a847c7210a5060cf0bb5a20fbc855869d735f2) and `develop` [`93d572fc`](https://github.com/crosspoint-reader/crosspoint-reader/commit/93d572fc), plus targeted CrossInk improvements, manually adapted to retain the vCodex band renderer, KOReader profiles, reading statistics, highlights, themes, ruby, Lyra, and SD-card fonts. Release `1.5.0.22` additionally adopts CrossPoint's pinned `freeink-sdk` hardware layer and the isolated SD recovery entry from [`5717374e`](https://github.com/crosspoint-reader/crosspoint-reader/commit/5717374e4be88b3d30f45626bf796ceb3687c836). |
 | Current release focus | Supports original and newer X3 panels through runtime detection, modernizes the X3/X4 hardware layer, and provides a deterministic SD recovery path for USB-locked devices. |
 | Latest release notes | - One firmware selects X4, X3 UC8253, or X3 UC8279d hardware at boot.<br>- Battery, USB wake, GPIO wake, and deep sleep use runtime board profiles while preserving X4's battery latch and X3's RTC/fuel gauge.<br>- Holding `UP + POWER` at wake enters the SD firmware picker directly; the blind-recovery sequence is documented in `USER_GUIDE.md`. |
-| Base firmware line | `CrossPoint Reader 1.5.0` |
+| Base firmware line | `CrossPoint Reader 1.6.0` (upstream `develop` `233f93ff`; next release is `1.6.0.1-cpr-vcodex`) |
 | Latest official commit reviewed | `master` through [`95a847c7`](https://github.com/crosspoint-reader/crosspoint-reader/commit/95a847c7210a5060cf0bb5a20fbc855869d735f2) and `develop` through [`93d572fc`](https://github.com/crosspoint-reader/crosspoint-reader/commit/93d572fc) |
 | Latest official commit incorporated | Release `1.5.0.22` retains the selected CrossPoint Reader changes incorporated through `1.5.0.21`, migrates the hardware layer to CrossPoint's pinned `freeink-sdk`, and restores the isolated SD recovery entry; FUI, settings-persistence, touch, and RTL rewrites remain intentionally deferred. |
 | Intentional upstream exclusions | Unsupported upstream theme variants such as `RoundedRaff` remain out of the supported vCodex theme list; other upstream UI/config changes are adapted selectively to preserve the existing X4 workflow. |
@@ -633,7 +633,7 @@ Each packaged dev build now keeps the base firmware line and the local flash ide
 
 Practical values to look at:
 
-- base firmware line: `CrossPoint Reader 1.5.0`
+- base firmware line: `CrossPoint Reader 1.6.0`
 - current release build style: `1.5.0.24-cpr-vcodex`
 - packaged artifact style: `artifacts/<version>-cpr-vcodex.bin`
 
@@ -721,10 +721,10 @@ artifacts/<version>-cpr-vcodex.bin
 
 Versioning rules:
 
-- release builds: `1.5.0.<release>-cpr-vcodex.bin`
-- dev builds: `1.5.0.<release>.dev<build>-<sha>-cpr-vcodex.bin`
+- release builds: `1.6.0.<release>-cpr-vcodex.bin`
+- dev builds: `1.6.0.<release>.dev<build>-<sha>-cpr-vcodex.bin`
 - X4 Pro builds use the same version numbers with an `-x4pro` suffix on the
-  packaged artifact (`1.5.0.<release>-cpr-vcodex-x4pro.bin`); dev X4 Pro
+  packaged artifact (`1.6.0.<release>-cpr-vcodex-x4pro.bin`); dev X4 Pro
   builds also carry `-x4pro` in the firmware version string
 
 Release publishing:
