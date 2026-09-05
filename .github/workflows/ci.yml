@@ -157,8 +157,11 @@ jobs:
       - name: Extract firmware stats
         run: |
           set -euo pipefail
-          ram_line="$(grep -E "RAM:\\s" -m1 pio.log || true)"
-          flash_line="$(grep -E "Flash:\\s" -m1 pio.log || true)"
+          # Match PlatformIO's size report ("RAM:   [==  ] 17.8% (used ... bytes from ...)"),
+          # not gen_i18n's "Flash: ... B strings" line, and take the last one: the
+          # firmware_tuned envs build twice (sdkconfig core rebuild, then the firmware).
+          ram_line="$(grep -E "^RAM: +\\[" pio.log | tail -n 1 || true)"
+          flash_line="$(grep -E "^Flash: +\\[" pio.log | tail -n 1 || true)"
           echo "ram_line=${ram_line}" >> "$GITHUB_OUTPUT"
           echo "flash_line=${flash_line}" >> "$GITHUB_OUTPUT"
           {
