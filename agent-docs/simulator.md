@@ -11,20 +11,25 @@ OTA (firmware updates are stubbed out).
 ## Setup (once)
 
 1. `brew install sdl2` (Linux: `libsdl2-dev libssl-dev`).
-2. Check out the fork's simulator branch beside this repo. The upstream
-   simulator only knows upstream's HAL; the `cpr-vcodex` branch adds the fork's
-   `HalClock` UTC API, `HalGPIO::coldBootImpliesPowerButton`,
-   `HalTiltSensor::readGyro`, plus host shims for `<Esp.h>`,
-   `<esp_heap_caps.h>`, SdFat `common/FsDateTime.h`, `MD5Builder::getBytes`,
-   the `esp_http_client` calls in `lib/KOReaderSync`, and the Wi-Fi
-   channel/BSSID overloads:
+2. `platformio.ini` fetches the simulator from the fork
+   `boydj/crosspoint-simulator`, branch `cpr-vcodex`. The upstream simulator
+   only knows upstream's HAL; that branch adds the fork's `HalClock` UTC API,
+   `HalGPIO::coldBootImpliesPowerButton`, `HalTiltSensor::readGyro`, plus host
+   shims for `<Esp.h>`, `<esp_heap_caps.h>`, SdFat `common/FsDateTime.h`,
+   `MD5Builder::getBytes`, the `esp_http_client` calls in `lib/KOReaderSync`,
+   and the Wi-Fi channel/BSSID overloads. To work on the simulator itself,
+   clone it beside this repo and point the env at the checkout from the
+   gitignored `platformio.local.ini`:
 
-   ```bash
-   git clone https://github.com/crosspoint-reader/crosspoint-simulator ../crosspoint-simulator
-   git -C ../crosspoint-simulator checkout cpr-vcodex   # or apply the fork's branch
+   ```ini
+   [env:simulator]
+   lib_deps =
+     ${env:simulator.lib_deps}
+     simulator=symlink://../crosspoint-simulator
    ```
 
-   `platformio.ini` references it as `simulator=symlink://../crosspoint-simulator`.
+   Merge `crosspoint-reader/crosspoint-simulator` `main` into that branch when
+   pulling firmware updates; keep the fork's additions small and additive.
 3. Put EPUBs in `fs_/books/` (gitignored). That directory is the simulated SD
    card root; `fs_/.crosspoint/` holds the simulated caches and settings.
 
