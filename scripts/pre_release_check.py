@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -156,7 +157,11 @@ def build_release(project_dir: Path, tag: str, jobs: int, target: ReleaseTarget)
         "VCODEX_RELEASE_DRY_RUN": "1",
         "VCODEX_RELEASE_TAG": tag,
     }
-    cmd = ["python", "-X", "utf8", "-m", "platformio", "run", "-e", target.env, "-j", str(jobs)]
+    # Prefer the PlatformIO CLI on PATH (CI, pio penv); fall back to the running
+    # interpreter's platformio module. A bare "python" does not exist on macOS.
+    pio = shutil.which("pio") or shutil.which("platformio")
+    launcher = [pio] if pio else [sys.executable, "-X", "utf8", "-m", "platformio"]
+    cmd = [*launcher, "run", "-e", target.env, "-j", str(jobs)]
     print(f"[run] {' '.join(cmd)}")
     result = run(cmd, env=env)
     if result.returncode != 0:
