@@ -34,8 +34,8 @@ def render_release_notes(changelog_path: Path, tag: str) -> str:
     changes = extract_changes(changelog_path.read_text(encoding="utf-8"), version)
     return (
         f"## Changes\n\n{changes}\n\n"
-        f"[Full changelog](https://github.com/franssjz/cpr-vcodex/blob/{tag}/CHANGELOG.md) · "
-        "[Auto Flash](https://franssjz.github.io/cpr-vcodex/flash.html)\n"
+        f"[Full changelog](https://github.com/boydj/cpr-vcodex/blob/{tag}/CHANGELOG.md) · "
+        "[Auto Flash](https://boydj.github.io/cpr-vcodex/flash.html)\n"
     )
 
 

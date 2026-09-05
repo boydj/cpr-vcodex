@@ -62,7 +62,7 @@ def update_readme_release_version(project_dir: Path, artifact_name: str) -> None
 
     readme_text = readme_path.read_text(encoding="utf-8")
     release_name = artifact_name[:-4]
-    release_url = f"https://github.com/franssjz/cpr-vcodex/releases/tag/{release_name}"
+    release_url = f"https://github.com/boydj/cpr-vcodex/releases/tag/{release_name}"
     updated_text, replacements = re.subn(
         r"(\| Current release \(CPR-vCodex\) build \| \[`)([^\]]+)(`\]\()([^)]+)(\) \|)",
         rf"\g<1>{release_name}\g<3>{release_url}\g<5>",

@@ -489,7 +489,7 @@
         <a href="./" data-site-i18n="navHome">Home</a>
         <a href="./flash.html" aria-current="page" data-site-i18n="navFlash">Auto Flash</a>
         <a href="./tools.html" data-site-i18n="navTools">Tools</a>
-        <a href="https://github.com/franssjz/cpr-vcodex" data-site-i18n="navGithub">GitHub</a>
+        <a href="https://github.com/boydj/cpr-vcodex" data-site-i18n="navGithub">GitHub</a>
         <a href="https://ko-fi.com/franssjz" data-site-i18n="navSupport">Support</a>
       </nav>
       <div class="site-actions">
@@ -613,7 +613,7 @@
     <section class="card manual">
       <h2 data-site-i18n="manualTitle">Manual PlatformIO flash</h2>
       <p data-site-i18n="manualText">For development builds, clone the repo, set the upload port, then use PlatformIO.</p>
-      <pre><code>git clone https://github.com/franssjz/cpr-vcodex.git
+      <pre><code>git clone https://github.com/boydj/cpr-vcodex.git
 cd cpr-vcodex
 
 # Xteink X4 / X3 (ESP32-C3)
@@ -636,7 +636,7 @@ pio run -e x4pro-gh_release -t upload</code></pre>
     const OTADATA_SIZE = 0x2000;
     const APP_MIN_SIZE = 0xf0000;
     const DEVICE_STORAGE_KEY = "cprVcodexFlashDevice";
-    const RELEASE_REPO = "franssjz/cpr-vcodex";
+    const RELEASE_REPO = "boydj/cpr-vcodex";
     // Stock Xteink X4 Pro (ESP32-S3, 16 MB) partition table. Its OTA slots are
     // 0x7E0000 each; the CPR-vCodex X4 Pro image is linked against the smaller
     // C3 slot size, so it always fits.

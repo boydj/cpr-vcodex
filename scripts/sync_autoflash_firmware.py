@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 
-DEFAULT_REPO = "franssjz/cpr-vcodex"
+DEFAULT_REPO = "boydj/cpr-vcodex"
 # Historic name kept for callers that still import it; it is the C3 slot size.
 APP_PARTITION_SIZE = 6_553_600
 MIN_FIRMWARE_SIZE = 1_000_000

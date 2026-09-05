@@ -74,7 +74,7 @@ Alternatively, while reading a book, press the **Confirm** button to open the re
 
 ### Touch Controls (X4 Pro only)
 
-The X4 Pro has a touchscreen and a capacitive **Home** key below the screen in addition to the Power button. The X4 Pro runs a separate ESP32-S3 firmware (`x4pro`, published as `<tag>-x4pro.bin`); everything else in this guide applies to it as well. To install it, choose **Xteink X4 Pro** on the browser [Auto Flash](https://franssjz.github.io/cpr-vcodex/flash.html) page (available once a release ships the X4 Pro asset) or copy `<tag>-x4pro.bin` to the SD card and use **Settings > System > SD Card Firmware Update**. The ESP32-S3 cannot be reset over USB serial: after a browser flash, unplug and replug the cable, then hold Power until the device boots.
+The X4 Pro has a touchscreen and a capacitive **Home** key below the screen in addition to the Power button. The X4 Pro runs a separate ESP32-S3 firmware (`x4pro`, published as `<tag>-x4pro.bin`); everything else in this guide applies to it as well. To install it, choose **Xteink X4 Pro** on the browser [Auto Flash](https://boydj.github.io/cpr-vcodex/flash.html) page (available once a release ships the X4 Pro asset) or copy `<tag>-x4pro.bin` to the SD card and use **Settings > System > SD Card Firmware Update**. The ESP32-S3 cannot be reset over USB serial: after a browser flash, unplug and replug the cable, then hold Power until the device boots.
 
 Gestures that work on every screen:
 

@@ -86,7 +86,7 @@ Rules:
 Use:
 
 ```bash
-python scripts/sync_autoflash_firmware.py --repo franssjz/cpr-vcodex
+python scripts/sync_autoflash_firmware.py --repo boydj/cpr-vcodex
 ```
 
 The sync downloads `<tag>.bin` (required) and `<tag>-x4pro.bin` (optional),
@@ -131,7 +131,7 @@ updated accordingly.
 Live URL:
 
 ```text
-https://franssjz.github.io/cpr-vcodex/
+https://boydj.github.io/cpr-vcodex/
 ```
 
 If the public page shows an old version, check:

@@ -43,7 +43,7 @@ The reported major version must be 21 or newer.
 ## Clone and initialize
 
 ```sh
-git clone --recursive https://github.com/franssjz/cpr-vcodex
+git clone --recursive https://github.com/boydj/cpr-vcodex
 cd cpr-vcodex
 ```
 

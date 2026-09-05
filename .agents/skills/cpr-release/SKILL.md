@@ -49,7 +49,7 @@ python -X utf8 scripts/pre_release_check.py --tag <tag>
    published release (fetches `<tag>.bin` and, when present, `<tag>-x4pro.bin`):
 
 ```powershell
-python -X utf8 scripts/sync_autoflash_firmware.py --repo franssjz/cpr-vcodex
+python -X utf8 scripts/sync_autoflash_firmware.py --repo boydj/cpr-vcodex
 ```
 
 6. Verify the GitHub release carries all eight assets (`<tag>[-x4pro].bin`,
