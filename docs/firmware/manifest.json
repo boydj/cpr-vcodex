@@ -3,15 +3,15 @@
   "version": "1.6.0.1-cpr-vcodex",
   "firmwareUrl": "firmware/firmware.bin",
   "downloadUrl": "https://github.com/boydj/cpr-vcodex/releases/download/1.6.0.1-cpr-vcodex/1.6.0.1-cpr-vcodex.bin",
-  "size": 6390064,
-  "sha256": "9b43c6b603137f3e12582f2cf27b8d35297f4e22095f8c5068d28403eb8c347d",
+  "size": 6390096,
+  "sha256": "ff8ac5479cf789bd4ba87564e0b129cf589c50b790d9f962ddd8a565a845053e",
   "source": {
     "type": "github-release",
     "repo": "boydj/cpr-vcodex",
     "tag": "1.6.0.1-cpr-vcodex",
     "asset": "1.6.0.1-cpr-vcodex.bin",
-    "publishedAt": "2026-09-05T23:10:42Z",
-    "assetUpdatedAt": "2026-09-05T23:25:19Z"
+    "publishedAt": "2026-09-06T02:08:28Z",
+    "assetUpdatedAt": "2026-09-06T02:09:11Z"
   },
   "devices": {
     "x4": {
@@ -21,10 +21,10 @@
       "path": "firmware/firmware.bin",
       "asset": "1.6.0.1-cpr-vcodex.bin",
       "downloadUrl": "https://github.com/boydj/cpr-vcodex/releases/download/1.6.0.1-cpr-vcodex/1.6.0.1-cpr-vcodex.bin",
-      "size": 6390064,
-      "sha256": "9b43c6b603137f3e12582f2cf27b8d35297f4e22095f8c5068d28403eb8c347d",
+      "size": 6390096,
+      "sha256": "ff8ac5479cf789bd4ba87564e0b129cf589c50b790d9f962ddd8a565a845053e",
       "appSlotSize": 6553600,
-      "assetUpdatedAt": "2026-09-05T23:25:19Z"
+      "assetUpdatedAt": "2026-09-06T02:09:11Z"
     },
     "x3": {
       "board": "x4",
@@ -33,10 +33,10 @@
       "path": "firmware/firmware.bin",
       "asset": "1.6.0.1-cpr-vcodex.bin",
       "downloadUrl": "https://github.com/boydj/cpr-vcodex/releases/download/1.6.0.1-cpr-vcodex/1.6.0.1-cpr-vcodex.bin",
-      "size": 6390064,
-      "sha256": "9b43c6b603137f3e12582f2cf27b8d35297f4e22095f8c5068d28403eb8c347d",
+      "size": 6390096,
+      "sha256": "ff8ac5479cf789bd4ba87564e0b129cf589c50b790d9f962ddd8a565a845053e",
       "appSlotSize": 7798784,
-      "assetUpdatedAt": "2026-09-05T23:25:19Z"
+      "assetUpdatedAt": "2026-09-06T02:09:11Z"
     },
     "x4pro": {
       "board": "x4pro",
@@ -45,10 +45,10 @@
       "path": "firmware/firmware-x4pro.bin",
       "asset": "1.6.0.1-cpr-vcodex-x4pro.bin",
       "downloadUrl": "https://github.com/boydj/cpr-vcodex/releases/download/1.6.0.1-cpr-vcodex/1.6.0.1-cpr-vcodex-x4pro.bin",
-      "size": 6494000,
-      "sha256": "022afcfd11503bbc6daa4130d0c95d6858a6eda1764bd4bd6dcca3030f085660",
+      "size": 6494032,
+      "sha256": "b2b45cf999b7cd5ab54caca3cd5c768e936096750aebab6e486e2c121bc757f3",
       "appSlotSize": 8257536,
-      "assetUpdatedAt": "2026-09-05T23:19:37Z"
+      "assetUpdatedAt": "2026-09-06T02:08:28Z"
     }
   },
   "new_install_prompt_erase": false,
