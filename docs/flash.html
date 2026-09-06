@@ -560,7 +560,7 @@
 
         <div class="version-box">
           <span data-site-i18n="latestPackage">Latest firmware package</span>
-          <strong id="firmware-version">1.5.0.24-cpr-vcodex</strong>
+          <strong id="firmware-version">1.6.0.1-cpr-vcodex</strong>
           <dl class="firmware-details">
             <div class="detail-row">
               <dt class="detail-label" data-site-i18n="firmwareSource">Source</dt>
@@ -568,7 +568,7 @@
             </div>
             <div class="detail-row">
               <dt class="detail-label" data-site-i18n="firmwareAsset">Asset</dt>
-              <dd class="detail-value" id="firmware-asset">1.5.0.24-cpr-vcodex.bin</dd>
+              <dd class="detail-value" id="firmware-asset">1.6.0.1-cpr-vcodex.bin</dd>
             </div>
             <div class="detail-row">
               <dt class="detail-label" data-site-i18n="firmwareSize">Size</dt>
@@ -602,7 +602,7 @@
         <p class="status" id="status" data-site-i18n="readyStatus">Ready. Clicking Flash will open the browser serial device chooser.</p>
 
         <div class="actions">
-          <a class="button" id="download-link" href="https://github.com/franssjz/cpr-vcodex/releases/download/1.5.0.24-cpr-vcodex/1.5.0.24-cpr-vcodex.bin" data-site-i18n="downloadBin">Download .bin</a>
+          <a class="button" id="download-link" href="https://github.com/boydj/cpr-vcodex/releases/download/1.6.0.1-cpr-vcodex/1.6.0.1-cpr-vcodex.bin" data-site-i18n="downloadBin">Download .bin</a>
           <a class="button" href="https://xteink.dve.al/" rel="noopener" data-site-i18n="communityFlasher">Community flasher</a>
         </div>
 
@@ -745,33 +745,41 @@ pio run -e x4pro-gh_release -t upload</code></pre>
       }
     };
     const FALLBACK_RELEASE = {
-      version: "1.5.0.24-cpr-vcodex",
+      version: "1.6.0.1-cpr-vcodex",
       firmwareUrl: "firmware/firmware.bin",
-      downloadUrl: "https://github.com/franssjz/cpr-vcodex/releases/download/1.5.0.24-cpr-vcodex/1.5.0.24-cpr-vcodex.bin",
-      size: 6141856,
-      sha256: "9d6f2dfcd5cf131b77c32b5bb27ee9fac9d593ada19dc89d0775cc5bd6146c09",
+      downloadUrl: "https://github.com/boydj/cpr-vcodex/releases/download/1.6.0.1-cpr-vcodex/1.6.0.1-cpr-vcodex.bin",
+      size: 6390064,
+      sha256: "9b43c6b603137f3e12582f2cf27b8d35297f4e22095f8c5068d28403eb8c347d",
       source: {
         type: "github-release",
-        repo: "franssjz/cpr-vcodex",
-        tag: "1.5.0.24-cpr-vcodex",
-        asset: "1.5.0.24-cpr-vcodex.bin"
+        repo: "boydj/cpr-vcodex",
+        tag: "1.6.0.1-cpr-vcodex",
+        asset: "1.6.0.1-cpr-vcodex.bin"
       },
       devices: {
         x4: {
           chipFamily: "ESP32-C3",
           path: "firmware/firmware.bin",
-          asset: "1.5.0.24-cpr-vcodex.bin",
-          downloadUrl: "https://github.com/franssjz/cpr-vcodex/releases/download/1.5.0.24-cpr-vcodex/1.5.0.24-cpr-vcodex.bin",
-          size: 6141856,
-          sha256: "9d6f2dfcd5cf131b77c32b5bb27ee9fac9d593ada19dc89d0775cc5bd6146c09"
+          asset: "1.6.0.1-cpr-vcodex.bin",
+          downloadUrl: "https://github.com/boydj/cpr-vcodex/releases/download/1.6.0.1-cpr-vcodex/1.6.0.1-cpr-vcodex.bin",
+          size: 6390064,
+          sha256: "9b43c6b603137f3e12582f2cf27b8d35297f4e22095f8c5068d28403eb8c347d"
         },
         x3: {
           chipFamily: "ESP32-C3",
           path: "firmware/firmware.bin",
-          asset: "1.5.0.24-cpr-vcodex.bin",
-          downloadUrl: "https://github.com/franssjz/cpr-vcodex/releases/download/1.5.0.24-cpr-vcodex/1.5.0.24-cpr-vcodex.bin",
-          size: 6141856,
-          sha256: "9d6f2dfcd5cf131b77c32b5bb27ee9fac9d593ada19dc89d0775cc5bd6146c09"
+          asset: "1.6.0.1-cpr-vcodex.bin",
+          downloadUrl: "https://github.com/boydj/cpr-vcodex/releases/download/1.6.0.1-cpr-vcodex/1.6.0.1-cpr-vcodex.bin",
+          size: 6390064,
+          sha256: "9b43c6b603137f3e12582f2cf27b8d35297f4e22095f8c5068d28403eb8c347d"
+        },
+        x4pro: {
+          chipFamily: "ESP32-S3",
+          path: "firmware/firmware-x4pro.bin",
+          asset: "1.6.0.1-cpr-vcodex-x4pro.bin",
+          downloadUrl: "https://github.com/boydj/cpr-vcodex/releases/download/1.6.0.1-cpr-vcodex/1.6.0.1-cpr-vcodex-x4pro.bin",
+          size: 6494000,
+          sha256: "022afcfd11503bbc6daa4130d0c95d6858a6eda1764bd4bd6dcca3030f085660"
         }
       }
     };

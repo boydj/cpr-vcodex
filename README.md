@@ -621,7 +621,7 @@ Important artifacts include:
 
 ### Recovering Reading Stats after 1.5.0.1 or 1.5.0.2
 
-Update to `1.5.0.24-cpr-vcodex` before resetting or deleting any data. In most cases the existing `/.crosspoint/reading_stats.json` will load automatically after the update because the affected releases rejected the file without overwriting it.
+Update to `1.6.0.1-cpr-vcodex` before resetting or deleting any data. In most cases the existing `/.crosspoint/reading_stats.json` will load automatically after the update because the affected releases rejected the file without overwriting it.
 
 If the displayed totals are still incomplete or incorrect, open `Settings > Apps > Reading Stats > Import Reading Stats` and select the newest suitable dated backup under `/exports/stats_backup_YYYY-MM-DD`. Those weekly backups appear directly in the import list and do not need to be renamed. If the only copy is on a computer, place it on the SD card as exactly `/exports/stats_exported` (without a `.json` extension), then import it. Try older dated backups newest-first if necessary, and preserve a copy of the SD card before cleaning or resetting statistics.
 
@@ -732,10 +732,10 @@ Release publishing:
 - before tagging, run:
 
 ```powershell
-python scripts/pre_release_check.py --tag 1.5.0.24-cpr-vcodex
+python scripts/pre_release_check.py --tag 1.6.0.1-cpr-vcodex
 ```
 
-- push a stable tag named like `1.5.0.24-cpr-vcodex`
+- push a stable tag named like `1.6.0.1-cpr-vcodex`
 - `pre_release_check.py` dry-runs both `gh_release` and `x4pro-gh_release`,
   checks each image against its own OTA slot (6,553,600 bytes for the C3,
   8,257,536 bytes for the X4 Pro), and validates both artifact pairs
