@@ -51,7 +51,7 @@ The philosophy of this fork is simple: keep the firmware fast, stable, and focus
 | Item | Value |
 |---|---|
 | Project | `CPR-vCodex` |
-| Device | `Xteink X4` (personally tested); `Xteink X3` UC8253/UC8279d runtime support, with broader physical feedback requested; `Xteink X4 Pro` (ESP32-S3, touch + frontlight) through the separate `x4pro` firmware, untested by this maintainer |
+| Device | `Xteink X4` (personally tested); `Xteink X3` UC8253/UC8279d runtime support, with broader physical feedback requested; `Xteink X4 Pro` (ESP32-S3, touch + frontlight) through the separate `x4pro` firmware, validated on hardware with release `1.6.0.1` (boot, sleep/wake, frontlight, touch, Home key, USB Drive, Wi-Fi and HTTPS, web server) |
 | Current release (CPR-vCodex) build | [`1.5.0.24-cpr-vcodex`](https://github.com/franssjz/cpr-vcodex/releases/tag/1.5.0.24-cpr-vcodex) |
 | Release hardware stack | `freeink-sdk` [`a485dc46`](https://github.com/Free-Ink/freeink-sdk/commit/a485dc46ef5fb2283e4bdb674002ddbef97a9268), with runtime X3/X4 and X3 UC8253/UC8279d detection. |
 | Latest SD font package | [`sd-fonts-m1-b4`](https://github.com/franssjz/cpr-vcodex/releases/tag/sd-fonts-m1-b4) |
